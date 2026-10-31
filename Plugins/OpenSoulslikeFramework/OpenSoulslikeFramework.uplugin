@@ -1,0 +1,30 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "0.1.0",
+	"FriendlyName": "Open Soulslike Framework",
+	"Description": "An open-source, C++ first, data-driven soulslike gameplay framework: combat (combos, guard, perfect guard, parry, poise, ripostes, backstabs), stats & leveling, status effects, buffs, inventory, crafting, equipment, lock-on, interactables (resting points, doors, chests, ladders), NPC dialogue, vendors, tag-based progression, slot-based save/load, AI & bosses.",
+	"Category": "Gameplay",
+	"CreatedBy": "Open Soulslike Framework contributors",
+	"CreatedByURL": "https://github.com/lifecoder1988/open-soulslike-framework",
+	"DocsURL": "https://github.com/lifecoder1988/open-soulslike-framework/tree/main/Docs",
+	"SupportURL": "https://github.com/lifecoder1988/open-soulslike-framework/issues",
+	"CanContainContent": true,
+	"IsBetaVersion": true,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "OpenSoulslikeFramework",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "OpenSoulslikeFrameworkTests",
+			"Type": "UncookedOnly",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{ "Name": "EnhancedInput", "Enabled": true }
+	]
+}

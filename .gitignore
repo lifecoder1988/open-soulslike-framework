@@ -1,0 +1,25 @@
+# Unreal generated
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+Build/
+Plugins/*/Binaries/
+Plugins/*/Intermediate/
+*.sln
+*.slnx
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+.vs/
+.vscode/
+.idea/
+
+# Third-party bridge plugins installed locally for testing (not part of this repo)
+Plugins/SoftUEBridge/
+
+# OS
+Thumbs.db
+.DS_Store
