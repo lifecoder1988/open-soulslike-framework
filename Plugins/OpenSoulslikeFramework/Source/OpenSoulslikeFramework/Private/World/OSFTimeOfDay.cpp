@@ -66,7 +66,7 @@ void AOSFTimeOfDay::ApplySun()
 		if (ULightComponent* Light = Sun->GetLightComponent())
 		{
 			const float Daylight = FMath::Clamp(FMath::Sin((TimeOfDay - 6.f) / 12.f * PI), 0.f, 1.f);
-			Light->SetIntensity(FMath::Lerp(0.3f, 8.f, Daylight));
+			Light->SetIntensity(FMath::Lerp(0.6f, 10.f, FMath::Sqrt(Daylight)));
 		}
 	}
 	const int32 Hour = FMath::FloorToInt(TimeOfDay);

@@ -10,6 +10,7 @@
 #include "Combat/OSFLockOnComponent.h"
 #include "Combat/OSFWeaponTraceComponent.h"
 #include "Interaction/OSFNPC.h"
+#include "Interaction/OSFInteractionComponent.h"
 #include "Interaction/OSFWorldInteractables.h"
 #include "Items/OSFEquipmentComponent.h"
 #include "Items/OSFInventoryComponent.h"
@@ -1129,7 +1130,54 @@ FString AOSFPlayerController::GetStatusReport() const
 
 void AOSFPlayerController::OSFStatus()
 {
-	UE_LOG(LogOSF, Log, TEXT("[OSFStatus] %s"), *GetStatusReport());
+	// One log line per entry so log readers (MCP log tools) get every line.
+	TArray<FString> Lines;
+	GetStatusReport().ParseIntoArrayLines(Lines);
+	for (const FString& Line : Lines)
+	{
+		UE_LOG(LogOSF, Log, TEXT("[OSFStatus] %s"), *Line.TrimStart());
+	}
+}
+
+void AOSFPlayerController::OSFInteract()
+{
+	if (AOSFPlayerCharacter* Hero = GetOSFPlayer())
+	{
+		const bool bInteracted = Hero->Interaction->TryInteract();
+		UE_LOG(LogOSF, Log, TEXT("OSFInteract -> %s"), bInteracted ? *GetNameSafe(Hero->Interaction->GetFocusedInteractable()) : TEXT("nothing in range"));
+	}
+}
+
+void AOSFPlayerController::OSFGoTo(const FString& Filter)
+{
+	AOSFPlayerCharacter* Hero = GetOSFPlayer();
+	if (!Hero)
+	{
+		return;
+	}
+	CloseAllMenus();
+	if (Hero->GetCurrentLadder())
+	{
+		Hero->ExitLadder(false);
+	}
+	for (TActorIterator<AActor> It(GetWorld()); It; ++It)
+	{
+		AActor* Actor = *It;
+		if (Actor == Hero || Actor->IsHidden() || !(Actor->GetName().Contains(Filter) || Actor->GetClass()->GetName().Contains(Filter)))
+		{
+			continue;
+		}
+		// Stand in front of the actor, facing it (the fog gate is entered from its back side).
+		const bool bFromBehind = Actor->IsA<AOSFFogGate>();
+		const FVector Forward = Actor->GetActorForwardVector().GetSafeNormal2D() * (bFromBehind ? -1.f : 1.f);
+		const FVector Location = Actor->GetActorLocation() + Forward * 160.f + FVector(0.f, 0.f, 100.f);
+		Hero->SetActorLocationAndRotation(Location, (-Forward).Rotation(), false, nullptr, ETeleportType::TeleportPhysics);
+		SetControlRotation((-Forward).Rotation());
+		Hero->Interaction->UpdateFocus();
+		UE_LOG(LogOSF, Log, TEXT("OSFGoTo %s -> %s (focus: %s)"), *Filter, *Actor->GetName(), *GetNameSafe(Hero->Interaction->GetFocusedInteractable()));
+		return;
+	}
+	UE_LOG(LogOSF, Warning, TEXT("OSFGoTo: nothing matches '%s'"), *Filter);
 }
 
 #undef LOCTEXT_NAMESPACE

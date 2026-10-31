@@ -39,14 +39,23 @@ namespace OSFTest
 {
 	constexpr EAutomationTestFlags Flags = EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter;
 
-	/** Minimal game world: no game mode, no map - just actors that tick. */
+	/**
+	 * Minimal game world: no game mode, no map - just actors, ticked manually by the test.
+	 * Mirrors FTestWorldWrapper (AutomationCommon.h) minus the game mode, so the project's
+	 * demo game mode doesn't build its level inside every test.
+	 */
 	struct FWorld
 	{
 		UWorld* World = nullptr;
+		uint64 CachedFrameCounter = 0;
 
 		FWorld()
 		{
+			CachedFrameCounter = GFrameCounter;
 			World = UWorld::CreateWorld(EWorldType::Game, false, TEXT("OSFTestWorld"));
+			// Ticked manually: the editor loop must not tick (or garbage collect) it behind our back.
+			World->SetShouldTick(false);
+			World->AddToRoot();
 			FWorldContext& Context = GEngine->CreateNewWorldContext(EWorldType::Game);
 			Context.SetCurrentWorld(World);
 			World->InitializeActorsForPlay(FURL());
@@ -63,8 +72,13 @@ namespace OSFTest
 
 		~FWorld()
 		{
+			World->BeginTearingDown();
+			World->EndPlay(EEndPlayReason::Quit);
+			FlushRenderingCommands();
+			World->RemoveFromRoot();
 			GEngine->DestroyWorldContext(World);
 			World->DestroyWorld(false);
+			GFrameCounter = CachedFrameCounter;
 		}
 
 		template <typename T>
@@ -82,10 +96,8 @@ namespace OSFTest
 				// The tick manager skips functions already queued this frame: advance the frame like the engine loop does.
 				++GFrameCounter;
 				World->Tick(LEVELTICK_All, Step);
-				if ((GFrameCounter % 30) == 0)
-				{
-					FlushRenderingCommands();
-				}
+				// Keep the render thread in lock-step with the simulated frames.
+				FlushRenderingCommands();
 			}
 		}
 	};

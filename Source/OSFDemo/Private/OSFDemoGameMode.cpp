@@ -87,6 +87,13 @@ void AOSFDemoGameMode::StartPlay()
 	Super::StartPlay();
 }
 
+AActor* AOSFDemoGameMode::ChoosePlayerStart_Implementation(AController* Player)
+{
+	// Players log in before StartPlay: build the demo (which adds a PlayerStart if needed) first.
+	BuildWorld();
+	return Super::ChoosePlayerStart_Implementation(Player);
+}
+
 AActor* AOSFDemoGameMode::SpawnBlock(const FVector& Location, const FVector& Size, const FLinearColor& Color, const FRotator& Rotation)
 {
 	static UStaticMesh* Cube = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
@@ -142,6 +149,7 @@ AOSFEnemyCharacter* AOSFDemoGameMode::SpawnSoldier(const FVector& Location, floa
 		Enemy->Loot.Add({ Content->Herb, 1, 0.6f });
 		Enemy->Loot.Add({ Content->Bone, 1, 0.5f });
 	}
+	Enemy->SightRadius = 1200.f;
 	Enemy->FinishSpawning(Transform);
 	return Enemy;
 }
@@ -255,8 +263,8 @@ void AOSFDemoGameMode::BuildWorld()
 		World->SpawnActor<AExponentialHeightFog>(FVector::ZeroVector, FRotator::ZeroRotator, Params);
 	}
 	AOSFTimeOfDay* Time = World->SpawnActor<AOSFTimeOfDay>(FVector::ZeroVector, FRotator::ZeroRotator, Params);
-	Time->TimeOfDay = 16.f;
-	Time->DayLengthMinutes = 40.f;
+	Time->TimeOfDay = 10.f;
+	Time->DayLengthMinutes = 120.f;
 
 	// --- Terrain ---
 	const FLinearColor Ground(0.18f, 0.17f, 0.15f);
@@ -298,7 +306,7 @@ void AOSFDemoGameMode::BuildWorld()
 	Pickup2->Count = 2;
 
 	// --- Soldiers in the courtyard ---
-	SpawnSoldier(FVector(1600.f, 200.f, 0.f), 180.f, false);
+	SpawnSoldier(FVector(1900.f, 200.f, 0.f), 180.f, false);
 	AOSFEnemyCharacter* Patroller = SpawnSoldier(FVector(2100.f, -500.f, 0.f), 180.f, false);
 	if (Patroller)
 	{

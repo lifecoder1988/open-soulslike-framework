@@ -17,7 +17,7 @@ class UOSFBuffData;
 
 /**
  * All demo data (items, recipes, dialogue, shop) created in code so the demo needs no binary assets.
- * In a real project these are Data Assets created in the editor (or with Scripts/create_demo_assets.py).
+ * In a real project these are Data Assets created in the editor.
  */
 UCLASS()
 class OSFDEMO_API UOSFDemoContent : public UObject

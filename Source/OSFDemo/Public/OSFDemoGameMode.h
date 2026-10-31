@@ -22,6 +22,7 @@ public:
 	AOSFDemoGameMode();
 
 	virtual void StartPlay() override;
+	virtual AActor* ChoosePlayerStart_Implementation(AController* Player) override;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Demo")
 	bool bBuildDemoContent = true;

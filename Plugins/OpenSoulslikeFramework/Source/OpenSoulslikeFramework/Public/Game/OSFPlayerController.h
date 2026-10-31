@@ -185,6 +185,10 @@ public:
 	UFUNCTION(Exec) void OSFDebugTraces();
 	UFUNCTION(Exec) void OSFStatus();
 	UFUNCTION(Exec) void OSFMenu(const FString& Command);
+	/** Interact with the focused interactable (resting point, NPC, chest, door, ladder, fog gate...). */
+	UFUNCTION(Exec) void OSFInteract();
+	/** Teleport next to the first actor whose name or class contains Filter (e.g. "FogGate", "NPC", "Chest"). */
+	UFUNCTION(Exec) void OSFGoTo(const FString& Filter);
 
 	/** Text summary of the player state (also printed by OSFStatus). */
 	UFUNCTION(BlueprintPure, Category = "OSF")
