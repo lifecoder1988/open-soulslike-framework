@@ -45,7 +45,16 @@ through the combat component; an empty magazine redirects to `UOSFAction_Reload`
 idle / walk / run blended by ground speed, plus one action clip on top. Actions play `Clip` (or the attack's `Clip`) and
 stretch their procedural timing to the clip (or retime the clip with `bFitClipToTiming`), so windows stay data driven.
 The root bone is locked to the reference pose: clips are in place and imported root tracks may carry axis conversions.
+When a clip carries the pelvis on the root (IK-retargeted clips: root ~1 m up), the bones under the root keep their
+component-space pose instead, so retargeted clips neither sink nor lose a death fall's tip-over.
+Walk / run cycles play at the rate that matches the capsule speed: `MeasureStrideSpeed` reads a clip's ground speed from
+its root travel (root-motion clips) or from the planted-foot speed relative to the hips (in-place clips), times the mesh
+scale (`GetLocomotionSpeeds`; `WalkSpeed` / `RunSpeed` are only the fallback). A run that is the walk clip again is dropped.
 `AOSFCharacterBase::SetupSkeletalMesh` scales an imported mesh to a height, grounds it and applies a yaw offset.
+`DeathClip` plays on death and holds its last frame (`PlayActionClip(..., bHoldAtEnd)`); without one the body tips over
+around the feet. A weapon's `StanceIdleClip` / `StanceWalkClip` / `StanceRunClip` replace the locomotion while it is in the
+active right hand (`RefreshLocomotionClips`, on equipment changes); `bSheathesOffHand` hides the off-hand weapon for
+two-handed guns and draws it for the parry (`UOSFEquipmentComponent::SetOffHandDrawn`).
 
 ## Hit resolution (`UOSFCombatComponent::ReceiveDamage`)
 
@@ -99,7 +108,8 @@ with the controller.
 `bOpenTitleOnStart` opens a title menu (New Game / Continue / Quit) and adds "Quit to Title" to the game menu; menus in
 `PausingMenus` (and the title) pause the world, and menu input keeps working while paused. `IsUsingGamepad()` /
 `OnInputDeviceChanged` follow the last meaningful input so prompts and key hints can switch between keyboard and pad glyphs
-(`ControlsHintGamepad`, the canvas prompt and menu keys already do).
+(`ControlsHintGamepad`, the canvas prompt and menu keys already do). The key hints stay up for `ControlsHintSeconds` of
+play the player can actually see (`CanShowControlsHint`, which a game turns off during its title, intro or cutscenes).
 
 ## Feedback: sound and effects
 

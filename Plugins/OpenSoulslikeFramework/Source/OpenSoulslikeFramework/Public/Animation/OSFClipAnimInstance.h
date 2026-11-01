@@ -72,6 +72,24 @@ public:
 	float RunSpeed = 520.f;
 
 	/**
+	 * Measures how fast the walk / run clips cover ground (planted-foot speed, see MeasureStrideSpeed) and uses
+	 * that instead of WalkSpeed / RunSpeed, so cycles play at the rate that matches the capsule and feet don't
+	 * slide. Falls back to WalkSpeed / RunSpeed for clips without recognisable foot bones.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Clips")
+	bool bMeasureStrideSpeed = true;
+
+	/**
+	 * Ground speed (cm/s, unscaled component units) of an in-place locomotion cycle: average horizontal speed
+	 * of the feet relative to the hips while they are planted (lowest part of their arc). 0 if not measurable.
+	 */
+	static float MeasureStrideSpeed(const FOSFAnimClip& Clip);
+
+	/** Ground speeds currently used for the walk / run clips (measured x mesh scale, or WalkSpeed / RunSpeed). */
+	UFUNCTION(BlueprintPure, Category = "OSF|Clips")
+	FVector2D GetLocomotionSpeeds() const;
+
+	/**
 	 * Keeps the root bone on the reference pose. Clips are expected to be in place (movement is gameplay driven);
 	 * this also drops per-clip root rotations, e.g. glTF imports whose root track still carries the source axis
 	 * conversion or a facing offset, which would otherwise tip or turn the whole character.
@@ -102,9 +120,12 @@ public:
 
 	/** Seconds since the action clip started (real time). */
 	float GetActionElapsed() const { return ActionElapsed; }
-	/** Plays a one-shot (or looping) clip over locomotion. Duration > 0 retimes the clip to last that long. */
+	/**
+	 * Plays a one-shot (or looping) clip over locomotion. Duration > 0 retimes the clip to last that long.
+	 * bHoldAtEnd keeps a one-shot on its last frame instead of blending out (death).
+	 */
 	UFUNCTION(BlueprintCallable, Category = "OSF|Clips")
-	void PlayActionClip(const FOSFAnimClip& Clip, float Duration = -1.f);
+	void PlayActionClip(const FOSFAnimClip& Clip, float Duration = -1.f, bool bHoldAtEnd = false);
 
 	/** Blends the action clip out (BlendTime < 0 uses the clip's BlendOut). */
 	UFUNCTION(BlueprintCallable, Category = "OSF|Clips")
@@ -139,9 +160,14 @@ protected:
 	float ActionWeightTarget = 0.f;
 	float ActionBlendOut = 0.2f;
 	bool bHoldAction = false;
+	bool bHoldActionAtEnd = false;
 
 	float IdleTime = 0.f;
 	float WalkTime = 0.f;
 	float RunTime = 0.f;
 	float Speed = 0.f;
+
+	/** MeasureStrideSpeed of Walk / Run (unscaled), 0 = not measured. */
+	float WalkStride = 0.f;
+	float RunStride = 0.f;
 };

@@ -57,6 +57,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD")
 	FText ControlsHintGamepad;
 
+	/** Seconds of actual play (CanShowControlsHint, no menu open) the key hints stay up; the last 3 fade out. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD")
+	float ControlsHintSeconds = 30.f;
+
+	/** Text scale of the key hints (drawn on a dark band at the bottom). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD")
+	float ControlsHintScale = 1.25f;
+
+	/** False while the game has the screen for something else (intro, cutscene): the hint time doesn't run. */
+	virtual bool CanShowControlsHint() const { return true; }
+
 	/** Label next to the currency counter. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD")
 	FText CurrencyLabel;
@@ -133,4 +144,6 @@ protected:
 	float HealthTrail = 1.f;
 	float BossTrail = 1.f;
 	double StartTime = -1.0;
+	/** Play time the key hints have been visible (see ControlsHintSeconds). */
+	float ControlsHintShown = 0.f;
 };

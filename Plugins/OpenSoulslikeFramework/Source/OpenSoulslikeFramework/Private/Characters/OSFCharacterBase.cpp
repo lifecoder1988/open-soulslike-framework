@@ -11,6 +11,7 @@
 #include "Combat/OSFWeaponTraceComponent.h"
 #include "Items/OSFInventoryComponent.h"
 #include "Items/OSFEquipmentComponent.h"
+#include "Items/OSFItemData.h"
 #include "Interaction/OSFLadder.h"
 #include "Animation/OSFClipAnimInstance.h"
 #include "Engine/SkeletalMesh.h"
@@ -124,6 +125,7 @@ void AOSFCharacterBase::BeginPlay()
 
 	Combat->OnDeath.AddDynamic(this, &AOSFCharacterBase::HandleDeath);
 	Combat->OnDamaged.AddDynamic(this, &AOSFCharacterBase::HandleDamaged);
+	Equipment->OnEquipmentChanged.AddDynamic(this, &AOSFCharacterBase::HandleEquipmentChangedForStance);
 	ActionComponent->OnStateTagChanged.AddDynamic(this, &AOSFCharacterBase::HandleStateTagChanged);
 }
 
@@ -348,8 +350,35 @@ void AOSFCharacterBase::InitClipAnimation()
 	{
 		ClipAnim->WalkSpeed = ClipLocomotionSpeeds.X;
 		ClipAnim->RunSpeed = ClipLocomotionSpeeds.Y;
-		ClipAnim->SetLocomotion(IdleClip, WalkClip, RunClip);
+		AppliedLocomotion[0] = AppliedLocomotion[1] = AppliedLocomotion[2] = nullptr;
+		RefreshLocomotionClips();
 	}
+}
+
+void AOSFCharacterBase::RefreshLocomotionClips()
+{
+	UOSFClipAnimInstance* ClipAnim = GetClipAnimInstance();
+	if (!ClipAnim)
+	{
+		return;
+	}
+	const USkeleton* MeshSkeleton = GetMesh()->GetSkeletalMeshAsset() ? GetMesh()->GetSkeletalMeshAsset()->GetSkeleton() : nullptr;
+	const UOSFWeaponData* Weapon = Equipment ? Equipment->GetEquippedWeapon(true) : nullptr;
+	auto Pick = [MeshSkeleton](const FOSFAnimClip& Own, const FOSFAnimClip* Stance) -> FOSFAnimClip
+	{
+		return (Stance && Stance->IsValid() && Stance->Sequence->GetSkeleton() == MeshSkeleton) ? *Stance : Own;
+	};
+	const FOSFAnimClip NewIdle = Pick(IdleClip, Weapon ? &Weapon->StanceIdleClip : nullptr);
+	const FOSFAnimClip NewWalk = Pick(WalkClip, Weapon ? &Weapon->StanceWalkClip : nullptr);
+	const FOSFAnimClip NewRun = Pick(RunClip, Weapon ? &Weapon->StanceRunClip : nullptr);
+	if (AppliedLocomotion[0] == NewIdle.Sequence && AppliedLocomotion[1] == NewWalk.Sequence && AppliedLocomotion[2] == NewRun.Sequence)
+	{
+		return;
+	}
+	AppliedLocomotion[0] = NewIdle.Sequence;
+	AppliedLocomotion[1] = NewWalk.Sequence;
+	AppliedLocomotion[2] = NewRun.Sequence;
+	ClipAnim->SetLocomotion(NewIdle, NewWalk, NewRun);
 }
 
 void AOSFCharacterBase::SetupSkeletalMesh(USkeletalMesh* NewMesh, float TargetHeight, float YawOffset)
@@ -387,7 +416,11 @@ void AOSFCharacterBase::UpdateSkeletalPose(float DeltaSeconds)
 		bMeshBaseCaptured = true;
 	}
 	FRotator Lean = FRotator::ZeroRotator;
-	if (IsDead())
+	if (IsDead() && bDeathClipPlaying)
+	{
+		// The death clip lays the body down itself.
+	}
+	else if (IsDead())
 	{
 		DeathFall = FMath::Min(1.f, DeathFall + DeltaSeconds * 2.2f);
 		Lean = FRotator(0.f, 0.f, 82.f * FMath::InterpEaseIn(0.f, 1.f, DeathFall, 2.f));
@@ -409,10 +442,13 @@ void AOSFCharacterBase::UpdateSkeletalPose(float DeltaSeconds)
 			Lean = FRotator(-28.f, 0.f, 0.f);
 		}
 	}
-	// Lean is expressed in actor space and applied around the feet.
+	// Lean is expressed in actor space and applied around the feet, lifted by half the body's thickness so a
+	// body tipped over lies on the ground instead of at hip height (or half sunk into it).
 	SmoothedSwing = FMath::RInterpTo(SmoothedSwing, Lean, DeltaSeconds, IsDead() ? 30.f : 12.f);
 	const FQuat LeanQuat = SmoothedSwing.Quaternion();
-	SkeletalMesh->SetRelativeLocationAndRotation(LeanQuat.RotateVector(MeshBaseTransform.GetLocation()), LeanQuat * MeshBaseTransform.GetRotation());
+	const UCapsuleComponent* Capsule = GetCapsuleComponent();
+	const FVector Pivot(0.f, 0.f, -Capsule->GetUnscaledCapsuleHalfHeight() + Capsule->GetUnscaledCapsuleRadius() * 0.5f);
+	SkeletalMesh->SetRelativeLocationAndRotation(Pivot + LeanQuat.RotateVector(MeshBaseTransform.GetLocation() - Pivot), LeanQuat * MeshBaseTransform.GetRotation());
 
 	// Hit flash on the mesh's materials is project specific; the overlay is left to the game.
 }
@@ -547,6 +583,15 @@ void AOSFCharacterBase::HandleDeath(UOSFCombatComponent* InCombat, AActor* Kille
 	{
 		UGameplayStatics::PlaySoundAtLocation(this, DeathSound, GetActorLocation());
 	}
+	if (UOSFClipAnimInstance* ClipAnim = GetClipAnimInstance(); ClipAnim && DeathClip.IsValid()
+		&& DeathClip.Sequence->GetSkeleton() == GetMesh()->GetSkeletalMeshAsset()->GetSkeleton())
+	{
+		FOSFAnimClip Clip = DeathClip;
+		Clip.bLoop = false;
+		Clip.bUpperBody = false;
+		ClipAnim->PlayActionClip(Clip, -1.f, true);
+		bDeathClipPlaying = true;
+	}
 	K2_OnDeath(Killer);
 }
 
@@ -564,6 +609,10 @@ void AOSFCharacterBase::HandleDamaged(UOSFCombatComponent* InCombat, const FOSFH
 
 void AOSFCharacterBase::HandleStateTagChanged(FGameplayTag Tag, bool bAdded)
 {
+	if (Tag == OSFTags::State_Parrying)
+	{
+		Equipment->SetOffHandDrawn(bAdded);	// a sheathed parrying dagger comes out for the parry
+	}
 	if (bAdded && (Tag == OSFTags::State_Staggered || Tag == OSFTags::State_PoiseBroken))
 	{
 		if (UOSFClipAnimInstance* ClipAnim = GetClipAnimInstance())
@@ -594,6 +643,7 @@ void AOSFCharacterBase::ResetCharacter(const FTransform& Transform)
 		MyController->SetControlRotation(Transform.GetRotation().Rotator());
 	}
 	DeathFall = 0.f;
+	bDeathClipPlaying = false;
 	SwingOffset = FRotator::ZeroRotator;
 	SmoothedSwing = FRotator::ZeroRotator;
 	if (bMeshBaseCaptured && !bProceduralVisuals && GetMesh())

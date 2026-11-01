@@ -265,6 +265,27 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
 	TSubclassOf<UAnimInstance> AnimLayerClass;
 
+	/**
+	 * Clip-animation stance while this weapon is in the active right hand (rifle carry, greatsword guard):
+	 * replaces the character's IdleClip / WalkClip / RunClip. Only used when the clip's skeleton matches the
+	 * character's mesh; empty clips keep the character's own.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
+	FOSFAnimClip StanceIdleClip;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
+	FOSFAnimClip StanceWalkClip;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
+	FOSFAnimClip StanceRunClip;
+
+	/**
+	 * Held with both hands (long guns): the off-hand weapon stays equipped but sheathed (hidden) while this one is
+	 * in the active right hand, and is drawn only while parrying.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
+	bool bSheathesOffHand = false;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
 	TObjectPtr<USoundBase> SwingSound = nullptr;
 

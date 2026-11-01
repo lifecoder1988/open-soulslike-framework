@@ -120,7 +120,21 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
 	FOSFAnimClip HitReactClip;
 
-	/** Ground speeds at which the walk / run clips play at their own rate. */
+	/** Optional death clip, held on its last frame. Without one the body tips over at the feet. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	FOSFAnimClip DeathClip;
+
+	/**
+	 * Re-picks the locomotion clips: the active right-hand weapon's stance clips (UOSFWeaponData::StanceIdleClip...)
+	 * when they fit this mesh, else IdleClip / WalkClip / RunClip. Called on equipment changes.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "OSF|Animation")
+	void RefreshLocomotionClips();
+
+	/**
+	 * Fallback walk / run ground speeds (cm/s) for clips whose stride can't be measured from foot bones
+	 * (UOSFClipAnimInstance::bMeasureStrideSpeed).
+	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
 	FVector2D ClipLocomotionSpeeds = FVector2D(220.f, 520.f);
 
@@ -266,6 +280,9 @@ protected:
 	UFUNCTION()
 	virtual void HandleStateTagChanged(FGameplayTag Tag, bool bAdded);
 
+	UFUNCTION()
+	void HandleEquipmentChangedForStance(UOSFEquipmentComponent* InEquipment) { RefreshLocomotionClips(); }
+
 	virtual void UpdateMovementSpeed();
 	virtual void UpdateProceduralVisuals(float DeltaSeconds);
 	/** Lean / stagger / death fall applied to the skeletal mesh (clip mode has no death or stagger clips by default). */
@@ -287,6 +304,10 @@ protected:
 	bool bProceduralVisuals = true;
 	float HitFlash = 0.f;
 	float DeathFall = 0.f;
+	/** The death clip is playing: no procedural fall on top. */
+	bool bDeathClipPlaying = false;
+	/** Locomotion clips last handed to the anim instance (RefreshLocomotionClips skips unchanged sets). */
+	const UAnimSequence* AppliedLocomotion[3] = { nullptr, nullptr, nullptr };
 	FRotator SwingOffset = FRotator::ZeroRotator;
 	FTransform MeshBaseTransform;
 	bool bMeshBaseCaptured = false;

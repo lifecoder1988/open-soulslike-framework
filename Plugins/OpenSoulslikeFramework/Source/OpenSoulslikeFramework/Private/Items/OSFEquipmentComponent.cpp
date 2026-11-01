@@ -365,6 +365,21 @@ void UOSFEquipmentComponent::SpawnWeaponActors()
 	}
 	RightWeaponActor = SpawnWeaponActor(GetEquippedWeapon(true), true);
 	LeftWeaponActor = SpawnWeaponActor(GetEquippedWeapon(false), false);
+	SetOffHandDrawn(false);
+}
+
+bool UOSFEquipmentComponent::IsOffHandSheathed() const
+{
+	const UOSFWeaponData* Right = GetEquippedWeapon(true);
+	return Right && Right->bSheathesOffHand;
+}
+
+void UOSFEquipmentComponent::SetOffHandDrawn(bool bDrawn)
+{
+	if (LeftWeaponActor)
+	{
+		LeftWeaponActor->SetActorHiddenInGame(IsOffHandSheathed() && !bDrawn);
+	}
 }
 
 AOSFWeaponActor* UOSFEquipmentComponent::SpawnWeaponActor(UOSFWeaponData* Weapon, bool bRightHand)

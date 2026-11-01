@@ -28,7 +28,7 @@
 AOSFHUD::AOSFHUD()
 {
 	CurrencyLabel = LOCTEXT("Runes", "RUNES");
-	ControlsHint = LOCTEXT("Controls", "LMB light  Q heavy  RMB guard  F skill/parry  Space roll (hold: sprint)  C jump  Tab lock-on  R item  E interact  1/2/3 cycle  T two-hand  I menu");
+	ControlsHint = LOCTEXT("Controls", "LMB light  Q heavy  RMB guard  F skill/parry  Space roll (hold: sprint)  C jump  Tab lock-on  R item  E interact  1/wheel cycle weapon  2/3 cycle left/item  T two-hand  I menu");
 	ControlsHintGamepad = LOCTEXT("ControlsPad", "RB light  RT heavy  LB guard  LT skill/parry  B roll (hold: sprint)  Y jump  R3 lock-on  X item  A interact  D-pad cycle  Menu: menu");
 }
 
@@ -578,13 +578,16 @@ void AOSFHUD::DrawMenu(AOSFPlayerController* PC)
 
 void AOSFHUD::DrawControls()
 {
-	const double Elapsed = GetWorld()->GetTimeSeconds() - StartTime;
-	if (Elapsed > 25.0)
+	// Counts only time the player can actually read it (no title, intro or cutscene in the way).
+	if (!CanShowControlsHint() || ControlsHintShown > ControlsHintSeconds)
 	{
 		return;
 	}
-	const float Alpha = FMath::Clamp(static_cast<float>(25.0 - Elapsed) / 3.f, 0.f, 1.f);
+	ControlsHintShown += GetWorld()->GetDeltaSeconds();
+	const float Alpha = FMath::Clamp((ControlsHintSeconds - ControlsHintShown) / 3.f, 0.f, 1.f);
 	const AOSFPlayerController* PC = Cast<AOSFPlayerController>(GetOwningPlayerController());
-	DrawTextAt((PC && PC->IsUsingGamepad() && !ControlsHintGamepad.IsEmpty() ? ControlsHintGamepad : ControlsHint).ToString(),
-		Canvas->ClipX * 0.5f, Canvas->ClipY - S(34.f), FLinearColor(0.85f, 0.85f, 0.85f, Alpha), 0.75f, true);
+	const FString Text = (PC && PC->IsUsingGamepad() && !ControlsHintGamepad.IsEmpty() ? ControlsHintGamepad : ControlsHint).ToString();
+	const float Height = S(30.f) * ControlsHintScale;
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.45f * Alpha), 0.f, Canvas->ClipY - S(16.f) - Height, Canvas->ClipX, Height + S(8.f));
+	DrawTextAt(Text, Canvas->ClipX * 0.5f, Canvas->ClipY - S(14.f) - Height, FLinearColor(0.92f, 0.9f, 0.85f, Alpha), ControlsHintScale, true);
 }

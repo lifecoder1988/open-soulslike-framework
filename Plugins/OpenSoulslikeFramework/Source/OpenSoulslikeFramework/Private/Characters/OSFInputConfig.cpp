@@ -106,7 +106,7 @@ UOSFInputConfig* UOSFInputConfig::BuildDefault(UObject* Outer)
 	Map(Config->LockOn, { EKeys::MiddleMouseButton, EKeys::Tab, EKeys::Gamepad_RightThumbstick });
 	Map(Config->UseItem, { EKeys::R, EKeys::Gamepad_FaceButton_Left });
 	Map(Config->Interact, { EKeys::E, EKeys::Gamepad_FaceButton_Bottom });
-	Map(Config->CycleRight, { EKeys::One, EKeys::Gamepad_DPad_Right });
+	Map(Config->CycleRight, { EKeys::One, EKeys::MouseScrollUp, EKeys::MouseScrollDown, EKeys::Gamepad_DPad_Right });
 	Map(Config->CycleLeft, { EKeys::Two, EKeys::Gamepad_DPad_Left });
 	Map(Config->CycleQuick, { EKeys::Three, EKeys::Gamepad_DPad_Down });
 	Map(Config->TwoHand, { EKeys::T, EKeys::Gamepad_DPad_Up });

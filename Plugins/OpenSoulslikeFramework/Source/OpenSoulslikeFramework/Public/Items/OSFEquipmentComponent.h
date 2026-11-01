@@ -155,6 +155,14 @@ public:
 	UFUNCTION(BlueprintPure, Category = "OSF|Equipment")
 	AOSFWeaponActor* GetWeaponActor(bool bRightHand) const { return bRightHand ? RightWeaponActor : LeftWeaponActor; }
 
+	/** The active right-hand weapon is held two-handed (UOSFWeaponData::bSheathesOffHand): the off-hand one is put away. */
+	UFUNCTION(BlueprintPure, Category = "OSF|Equipment")
+	bool IsOffHandSheathed() const;
+
+	/** Shows the sheathed off-hand weapon (e.g. while parrying) or puts it away again. */
+	UFUNCTION(BlueprintCallable, Category = "OSF|Equipment")
+	void SetOffHandDrawn(bool bDrawn);
+
 	UFUNCTION(BlueprintPure, Category = "OSF|Equipment")
 	UOSFItemData* GetActiveQuickItem() const;
 
