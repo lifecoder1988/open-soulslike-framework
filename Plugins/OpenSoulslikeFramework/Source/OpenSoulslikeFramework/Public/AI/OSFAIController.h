@@ -70,6 +70,8 @@ protected:
 	void FaceTarget(float DeltaSeconds);
 	void SetCombatMovement(bool bCombat);
 	void ScheduleNextAttack();
+	/** Other regular enemies currently attacking Victim (UOSFAICombatComponent::MaxSimultaneousAttackers). */
+	int32 CountOtherAttackers(const AActor* Victim) const;
 
 	AOSFEnemyCharacter* GetEnemy() const;
 

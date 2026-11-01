@@ -79,6 +79,12 @@ two-handed guns and draws it for the parry (`UOSFEquipmentComponent::SetOffHandD
 
 Items are saved by `ItemId`. `UOSFItemRegistry` resolves ids for data assets (through the asset registry) and for items created at runtime.
 
+## Enemy group pacing
+
+`UOSFAICombatComponent::MaxSimultaneousAttackers` (default 2) caps how many regular enemies swing at the same target at
+once; the rest keep circling at `PreferredDistance` and retry a moment later (`AOSFAIController::CountOtherAttackers`).
+Bosses ignore it.
+
 ## Perilous attacks
 
 An attack with `bPerilous` gives its owner `OSF.State.Perilous` during the windup. A hit whose `SourceTags` match the

@@ -179,6 +179,25 @@ void AOSFAIController::ScheduleNextAttack()
 	NextAttackTime = GetWorld()->GetTimeSeconds() + FMath::FRandRange(Interval.X, Interval.Y);
 }
 
+int32 AOSFAIController::CountOtherAttackers(const AActor* Victim) const
+{
+	int32 Count = 0;
+	for (TActorIterator<AOSFEnemyCharacter> It(GetWorld()); It; ++It)
+	{
+		const AOSFEnemyCharacter* Other = *It;
+		const AOSFAIController* OtherAI = Other ? Cast<AOSFAIController>(Other->GetController()) : nullptr;
+		if (!OtherAI || OtherAI == this || Other->IsBoss() || Other->IsDead() || OtherAI->GetTarget() != Victim)
+		{
+			continue;
+		}
+		if (Other->ActionComponent->HasStateTag(OSFTags::State_Attacking))
+		{
+			++Count;
+		}
+	}
+	return Count;
+}
+
 void AOSFAIController::SteerTowards(const FVector& Direction, float Scale)
 {
 	AOSFEnemyCharacter* Enemy = GetEnemy();
@@ -404,6 +423,13 @@ void AOSFAIController::TickCombat(float DeltaSeconds)
 	if (bTargetVulnerable && Now + 0.5 < NextAttackTime && FMath::FRand() < AICombat->PunishChance * DeltaSeconds * 4.f)
 	{
 		NextAttackTime = Now;
+	}
+
+	// Group pacing: wait (circling) while enough others are already swinging at the target.
+	if (Now >= NextAttackTime && !Enemy->IsBoss() && AICombat->MaxSimultaneousAttackers > 0
+		&& CountOtherAttackers(Current) >= AICombat->MaxSimultaneousAttackers)
+	{
+		NextAttackTime = Now + FMath::FRandRange(0.4f, 0.9f);
 	}
 
 	if (Now >= NextAttackTime)

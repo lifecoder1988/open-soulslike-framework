@@ -378,7 +378,7 @@ void UOSFEquipmentComponent::SetOffHandDrawn(bool bDrawn)
 {
 	if (LeftWeaponActor)
 	{
-		LeftWeaponActor->SetActorHiddenInGame(IsOffHandSheathed() && !bDrawn);
+		LeftWeaponActor->SetActorHiddenInGame(bHideWeaponMeshes || (IsOffHandSheathed() && !bDrawn));
 	}
 }
 

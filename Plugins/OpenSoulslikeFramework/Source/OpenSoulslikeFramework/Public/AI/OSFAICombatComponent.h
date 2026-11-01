@@ -79,6 +79,13 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|AI", meta = (ClampMin = 0, ClampMax = 1))
 	float PunishChance = 0.4f;
 
+	/**
+	 * Group pacing: at most this many regular enemies attack the same target at once; the others keep circling at
+	 * PreferredDistance until a slot frees up (bosses ignore it). 0 = no limit.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|AI", meta = (ClampMin = 0))
+	int32 MaxSimultaneousAttackers = 2;
+
 	/** Picks an ability valid at the given distance / phase (weighted random). INDEX_NONE if none. */
 	UFUNCTION(BlueprintCallable, Category = "OSF|AI")
 	int32 SelectAbility(float DistanceToTarget, int32 Phase) const;
