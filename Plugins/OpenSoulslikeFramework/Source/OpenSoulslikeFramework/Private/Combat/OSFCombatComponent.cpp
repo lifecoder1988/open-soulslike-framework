@@ -153,6 +153,20 @@ FOSFHitInfo UOSFCombatComponent::ReceiveDamage(const FOSFDamageEvent& Event)
 	{
 		TotalDamage += Pair.Value * (1.f - GetDamageNegation(Pair.Key)) * DamageTakenMultiplier;
 	}
+	const float RawDamage = Spec.GetTotalDamage();
+	Info.NegatedFraction = RawDamage > KINDA_SMALL_NUMBER ? FMath::Clamp(1.f - TotalDamage / (RawDamage * DamageTakenMultiplier), 0.f, 1.f) : 0.f;
+
+	// --- Counter: a hit with a matching source during a perilous windup ---
+	float CounterPoiseDamage = 0.f;
+	if (!Spec.bIsCritical && Actions->HasStateTag(OSFTags::State_Perilous))
+	{
+		const UOSFAction_Attack* Attack = Cast<UOSFAction_Attack>(Actions->GetCurrentAction());
+		if (Attack && Attack->GetCurrentAttack().bPerilous && Spec.SourceTags.HasAny(Attack->GetCurrentAttack().CounterTags))
+		{
+			Info.bCountered = true;
+			CounterPoiseDamage = Attack->GetCurrentAttack().CounterPoiseDamage;
+		}
+	}
 
 	// --- Guard ---
 	if (!Spec.bIsCritical && Spec.bCanBeGuarded && bFacing && Actions->HasStateTag(OSFTags::State_Guarding))
@@ -232,8 +246,23 @@ FOSFHitInfo UOSFCombatComponent::ReceiveDamage(const FOSFDamageEvent& Event)
 		return Info;
 	}
 
+	// --- Counter (ignores hyper armor, always interrupts) ---
+	if (Info.bCountered)
+	{
+		Actions->CancelCurrentAction();
+		if (Stats->HasStat(OSFTags::Stat_Poise))
+		{
+			Stats->ModifyCurrent(OSFTags::Stat_Poise, -(CounterPoiseDamage + Spec.PoiseDamage), true);
+		}
+		const bool bBroken = Stats->HasStat(OSFTags::Stat_Poise) && Stats->GetCurrent(OSFTags::Stat_Poise) <= 0.f;
+		if (bBroken)
+		{
+			Stats->SetCurrent(OSFTags::Stat_Poise, Stats->GetMax(OSFTags::Stat_Poise));
+		}
+		Info.Reaction = (bBroken && bPoiseBreakOpensRiposte && bCanBeRiposted) ? EOSFHitReaction::PoiseBreak : EOSFHitReaction::Stagger;
+	}
 	// --- Poise ---
-	if (!Spec.bIsCritical && !Actions->HasStateTag(OSFTags::State_HyperArmor) && Spec.PoiseDamage > 0.f && Stats->HasStat(OSFTags::Stat_Poise))
+	else if (!Spec.bIsCritical && !Actions->HasStateTag(OSFTags::State_HyperArmor) && Spec.PoiseDamage > 0.f && Stats->HasStat(OSFTags::Stat_Poise))
 	{
 		Stats->ModifyCurrent(OSFTags::Stat_Poise, -Spec.PoiseDamage, true);
 		if (Stats->GetCurrent(OSFTags::Stat_Poise) <= 0.f)

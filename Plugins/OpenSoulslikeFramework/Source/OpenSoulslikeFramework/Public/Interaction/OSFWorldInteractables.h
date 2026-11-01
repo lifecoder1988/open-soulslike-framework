@@ -8,6 +8,7 @@
 #include "OSFWorldInteractables.generated.h"
 
 class UPointLightComponent;
+class UMaterialInterface;
 class UOSFItemData;
 class AOSFEnemyCharacter;
 class UOSFCombatComponent;
@@ -191,6 +192,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fog Gate")
 	TObjectPtr<AOSFEnemyCharacter> Boss;
+
+	/** Mist material (translucent); its "Color" parameter gets the gate Color. Defaults to the basic shape material. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Fog Gate")
+	TObjectPtr<UMaterialInterface> GateMaterial;
 
 	virtual void BeginPlay() override;
 	virtual bool CanInteract_Implementation(AActor* Interactor) const override;

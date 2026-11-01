@@ -1,6 +1,8 @@
 // Copyright Open Soulslike Framework contributors. MIT License.
 
 #include "Interaction/OSFWorldInteractables.h"
+#include "GameFramework/Controller.h"
+#include "GameFramework/Pawn.h"
 #include "Characters/OSFPlayerCharacter.h"
 #include "AI/OSFEnemyCharacter.h"
 #include "AI/OSFBossComponent.h"
@@ -413,6 +415,11 @@ AOSFFogGate::AOSFFogGate()
 
 void AOSFFogGate::BeginPlay()
 {
+	if (GateMaterial)
+	{
+		Mesh->SetMaterial(0, GateMaterial);
+		Mesh->SetCastShadow(false);
+	}
 	Super::BeginPlay();
 	if (Boss && Boss->Combat)
 	{
@@ -440,6 +447,11 @@ void AOSFFogGate::Interact_Implementation(AActor* Interactor)
 	const FVector Through = GetActorLocation() + GetActorForwardVector() * 220.f;
 	Interactor->SetActorLocation(FVector(Through.X, Through.Y, Interactor->GetActorLocation().Z), false, nullptr, ETeleportType::TeleportPhysics);
 	Interactor->SetActorRotation(FRotator(0.f, GetActorRotation().Yaw, 0.f));
+	// Turn the camera too: aiming and lock-on follow the view.
+	if (const APawn* Pawn = Cast<APawn>(Interactor); Pawn && Pawn->GetController())
+	{
+		Pawn->GetController()->SetControlRotation(FRotator(-10.f, GetActorRotation().Yaw, 0.f));
+	}
 	if (Boss)
 	{
 		Boss->BeginBossFight(Interactor);

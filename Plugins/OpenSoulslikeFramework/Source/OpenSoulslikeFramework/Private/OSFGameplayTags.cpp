@@ -28,6 +28,8 @@ namespace OSFTags
 	UE_DEFINE_GAMEPLAY_TAG(Action_UseItem, "OSF.Action.UseItem");
 	UE_DEFINE_GAMEPLAY_TAG(Action_Execute, "OSF.Action.Execute");
 	UE_DEFINE_GAMEPLAY_TAG(Action_AIAbility, "OSF.Action.AIAbility");
+	UE_DEFINE_GAMEPLAY_TAG(Action_Shoot, "OSF.Action.Shoot");
+	UE_DEFINE_GAMEPLAY_TAG(Action_Reload, "OSF.Action.Reload");
 
 	UE_DEFINE_GAMEPLAY_TAG(State_Busy, "OSF.State.Busy");
 	UE_DEFINE_GAMEPLAY_TAG(State_Attacking, "OSF.State.Attacking");
@@ -48,6 +50,13 @@ namespace OSFTags
 	UE_DEFINE_GAMEPLAY_TAG(State_ComboWindow, "OSF.State.ComboWindow");
 	UE_DEFINE_GAMEPLAY_TAG(State_TwoHanding, "OSF.State.TwoHanding");
 	UE_DEFINE_GAMEPLAY_TAG(State_Resting, "OSF.State.Resting");
+	UE_DEFINE_GAMEPLAY_TAG(State_Perilous, "OSF.State.Perilous");
+	UE_DEFINE_GAMEPLAY_TAG(State_Shooting, "OSF.State.Shooting");
+	UE_DEFINE_GAMEPLAY_TAG(State_Reloading, "OSF.State.Reloading");
+
+	UE_DEFINE_GAMEPLAY_TAG(Source_Melee, "OSF.Source.Melee");
+	UE_DEFINE_GAMEPLAY_TAG(Source_Projectile, "OSF.Source.Projectile");
+	UE_DEFINE_GAMEPLAY_TAG(Source_Explosion, "OSF.Source.Explosion");
 
 	UE_DEFINE_GAMEPLAY_TAG(Damage_Physical, "OSF.Damage.Physical");
 	UE_DEFINE_GAMEPLAY_TAG(Damage_Magic, "OSF.Damage.Magic");

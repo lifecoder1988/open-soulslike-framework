@@ -617,7 +617,7 @@ TArray<FOSFMenuEntry> AOSFPlayerController::GetMenuEntries() const
 					continue;
 				}
 				const int32 Stock = NPC->GetRemainingStock(Hero->Progress, Index);
-				const FString StockText = Stock < 0 ? TEXT("") : FString::Printf(TEXT("  (%d left)"), Stock);
+				const FString StockText = Stock < 0 ? TEXT("") : FText::Format(NSLOCTEXT("OSFUI", "StockLeft", "  ({0} left)"), Stock).ToString();
 				FOSFMenuEntry& Entry = Add(VendorEntry.Item->DisplayName, FText::FromString(FString::Printf(TEXT("%d%s"), VendorEntry.Price, *StockText)),
 					Stock != 0 && Hero->Inventory->GetCurrency() >= VendorEntry.Price);
 				Entry.Item = VendorEntry.Item;
@@ -667,7 +667,7 @@ TArray<FOSFMenuEntry> AOSFPlayerController::GetMenuEntries() const
 		{
 			const FOSFSaveSummary Summary = Save->GetSlotSummary(Slot);
 			const FText Value = Summary.bExists
-				? FText::FromString(FString::Printf(TEXT("Lv %d   %s"), Summary.Level, *Summary.Timestamp.ToString(TEXT("%Y-%m-%d %H:%M"))))
+				? FText::Format(NSLOCTEXT("OSFUI", "SaveSummary", "Lv {0}   {1}"), Summary.Level, FText::FromString(Summary.Timestamp.ToString(TEXT("%Y-%m-%d %H:%M"))))
 				: LOCTEXT("EmptySave", "(empty)");
 			Add(FText::Format(LOCTEXT("SlotN", "Slot {0}"), FText::AsNumber(Slot + 1)), Value, Frame.Menu == EOSFMenu::SaveSlots || Summary.bExists);
 		}
@@ -1074,6 +1074,37 @@ void AOSFPlayerController::OSFAction(const FString& ActionTag)
 void AOSFPlayerController::OSFLockOn()
 {
 	if (AOSFPlayerCharacter* Hero = GetOSFPlayer()) { Hero->LockOn->ToggleLockOn(); }
+}
+
+void AOSFPlayerController::OSFCycleAmmo()
+{
+	AOSFPlayerCharacter* Hero = GetOSFPlayer();
+	UOSFWeaponData* Ranged = Hero ? Hero->Equipment->GetActiveRangedWeapon() : nullptr;
+	if (Ranged && Hero->Equipment->CycleAmmo(Ranged))
+	{
+		Hero->PerformAction(OSFTags::Action_Reload);
+	}
+	const FOSFMagazine Magazine = Hero ? Hero->Equipment->GetMagazine(Ranged) : FOSFMagazine();
+	UE_LOG(LogOSF, Log, TEXT("OSFCycleAmmo -> %s"), Magazine.Ammo ? *Magazine.Ammo->ItemId.ToString() : TEXT("none"));
+}
+
+void AOSFPlayerController::OSFFace(const FString& Filter)
+{
+	APawn* MyPawn = GetPawn();
+	if (!MyPawn)
+	{
+		return;
+	}
+	for (TActorIterator<AActor> It(GetWorld()); It; ++It)
+	{
+		if (*It != MyPawn && (It->GetName().Contains(Filter) || It->GetClass()->GetName().Contains(Filter)))
+		{
+			const FRotator Facing = (It->GetActorLocation() - MyPawn->GetActorLocation()).GetSafeNormal2D().Rotation();
+			MyPawn->SetActorRotation(Facing);
+			SetControlRotation(FRotator(-10.f, Facing.Yaw, 0.f));
+			return;
+		}
+	}
 }
 
 void AOSFPlayerController::OSFTeleport(float X, float Y, float Z)

@@ -211,6 +211,10 @@ void UOSFAction_Attack::OnStarted()
 	{
 		SetWindow(EOSFActionWindow::HyperArmor, true);
 	}
+	if (CurrentAttack.bPerilous)
+	{
+		ActionComponent->AddStateTag(OSFTags::State_Perilous);
+	}
 	if (CurrentWeapon && CurrentWeapon->SwingSound && GetCharacter())
 	{
 		UGameplayStatics::PlaySoundAtLocation(this, CurrentWeapon->SwingSound, GetCharacter()->GetActorLocation());
@@ -219,6 +223,10 @@ void UOSFAction_Attack::OnStarted()
 
 void UOSFAction_Attack::OnPhaseChanged(EOSFActionPhase NewPhase)
 {
+	if (NewPhase != EOSFActionPhase::Windup && CurrentAttack.bPerilous)
+	{
+		ActionComponent->ClearStateTag(OSFTags::State_Perilous);
+	}
 	if (NewPhase == EOSFActionPhase::Recovery && CurrentAttack.bHyperArmor && IsProcedural())
 	{
 		SetWindow(EOSFActionWindow::HyperArmor, false);
@@ -258,7 +266,7 @@ void UOSFAction_Attack::OnWindowChanged(EOSFActionWindow Window, bool bOpen)
 			}
 			if (Character && !bTooClose)
 			{
-				LungeRootMotionId = UOSFCombatLibrary::ApplyMovementBurst(Character, Character->GetActorForwardVector(), CurrentAttack.Lunge * 0.5f, FMath::Max(0.05f, CurrentAttack.Timing.Active), TEXT("OSFLunge"));
+				LungeRootMotionId = UOSFCombatLibrary::ApplyMovementBurst(Character, Character->GetActorForwardVector(), CurrentAttack.Lunge * 0.5f, FMath::Max(0.05f, GetEffectiveTiming().Active), TEXT("OSFLunge"));
 			}
 		}
 	}
@@ -276,7 +284,7 @@ void UOSFAction_Attack::OnTick(float DeltaTime)
 		return;
 	}
 	// Procedural swing: raise back during windup, sweep during active, return during recovery.
-	const FOSFActionTiming& T = CurrentAttack.Timing;
+	const FOSFActionTiming& T = GetEffectiveTiming();
 	float Alpha = 0.f;
 	if (Elapsed < T.Windup)
 	{
@@ -299,6 +307,7 @@ void UOSFAction_Attack::OnEnded(bool bInterrupted)
 {
 	if (ActionComponent)
 	{
+		ActionComponent->ClearStateTag(OSFTags::State_Perilous);
 		if (UOSFWeaponTraceComponent* Trace = OSF::Get<UOSFWeaponTraceComponent>(ActionComponent->GetOwner()))
 		{
 			Trace->EndTrace();

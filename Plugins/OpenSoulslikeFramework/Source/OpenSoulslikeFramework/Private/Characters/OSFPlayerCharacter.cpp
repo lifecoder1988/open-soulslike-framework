@@ -12,6 +12,7 @@
 #include "Items/OSFInventoryComponent.h"
 #include "Items/OSFItemData.h"
 #include "Progression/OSFProgressComponent.h"
+#include "Progression/OSFQuestComponent.h"
 #include "Stats/OSFStatComponent.h"
 #include "Stats/OSFStatusEffectComponent.h"
 #include "Game/OSFGameMode.h"
@@ -54,6 +55,7 @@ AOSFPlayerCharacter::AOSFPlayerCharacter(const FObjectInitializer& ObjectInitial
 	LockOn = CreateDefaultSubobject<UOSFLockOnComponent>(TEXT("LockOn"));
 	Interaction = CreateDefaultSubobject<UOSFInteractionComponent>(TEXT("Interaction"));
 	Progress = CreateDefaultSubobject<UOSFProgressComponent>(TEXT("Progress"));
+	Quests = CreateDefaultSubobject<UOSFQuestComponent>(TEXT("Quests"));
 
 	Combat->TeamId = 0;
 	Combat->bPoiseBreakOpensRiposte = false;
@@ -143,6 +145,13 @@ void AOSFPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInput
 	Input->BindAction(C->CycleLeft, ETriggerEvent::Started, this, &AOSFPlayerCharacter::InputCycleLeft);
 	Input->BindAction(C->CycleQuick, ETriggerEvent::Started, this, &AOSFPlayerCharacter::InputCycleQuick);
 	Input->BindAction(C->TwoHand, ETriggerEvent::Started, this, &AOSFPlayerCharacter::InputTwoHand);
+	if (C->Fire)
+	{
+		Input->BindAction(C->Fire, ETriggerEvent::Started, this, &AOSFPlayerCharacter::InputFire);
+		Input->BindAction(C->Fire, ETriggerEvent::Completed, this, &AOSFPlayerCharacter::InputFireReleased);
+	}
+	if (C->Reload) { Input->BindAction(C->Reload, ETriggerEvent::Started, this, &AOSFPlayerCharacter::InputReload); }
+	if (C->CycleAmmo) { Input->BindAction(C->CycleAmmo, ETriggerEvent::Started, this, &AOSFPlayerCharacter::InputCycleAmmo); }
 	Input->BindAction(C->Menu, ETriggerEvent::Started, this, &AOSFPlayerCharacter::InputMenu);
 	Input->BindAction(C->MenuUp, ETriggerEvent::Started, this, &AOSFPlayerCharacter::InputMenuUp);
 	Input->BindAction(C->MenuDown, ETriggerEvent::Started, this, &AOSFPlayerCharacter::InputMenuDown);
@@ -302,6 +311,37 @@ void AOSFPlayerCharacter::InputTwoHand()
 	if (!IsInMenu() && !ActionComponent->IsBusy()) { Equipment->ToggleTwoHand(); }
 }
 
+void AOSFPlayerCharacter::InputFire()
+{
+	bFireHeld = true;
+	if (!IsInMenu()) { ActionComponent->TryExecuteAction(OSFTags::Action_Shoot); }
+}
+
+void AOSFPlayerCharacter::InputFireReleased()
+{
+	bFireHeld = false;
+}
+
+void AOSFPlayerCharacter::InputReload()
+{
+	if (!IsInMenu()) { ActionComponent->TryExecuteAction(OSFTags::Action_Reload); }
+}
+
+void AOSFPlayerCharacter::InputCycleAmmo()
+{
+	if (IsInMenu() || ActionComponent->IsBusy())
+	{
+		return;
+	}
+	if (UOSFWeaponData* Ranged = Equipment->GetActiveRangedWeapon())
+	{
+		if (Equipment->CycleAmmo(Ranged))
+		{
+			ActionComponent->TryExecuteAction(OSFTags::Action_Reload);
+		}
+	}
+}
+
 void AOSFPlayerCharacter::InputMenu()
 {
 	if (AOSFPlayerController* PC = GetOSFController())
@@ -331,6 +371,12 @@ void AOSFPlayerCharacter::Tick(float DeltaSeconds)
 	if (bDodgeHeld && !IsSprinting() && DodgePressTime >= 0.0 && GetWorld()->GetTimeSeconds() - DodgePressTime >= SprintHoldThreshold && !ActionComponent->IsBusy())
 	{
 		SetSprinting(true);
+	}
+
+	// Holding fire keeps shooting at the weapon's fire rate.
+	if (bFireHeld && !IsInMenu() && !ActionComponent->IsBusy())
+	{
+		ActionComponent->TryExecuteAction(OSFTags::Action_Shoot, false);
 	}
 
 	// Strafe around the lock-on target (except while sprinting / rolling).

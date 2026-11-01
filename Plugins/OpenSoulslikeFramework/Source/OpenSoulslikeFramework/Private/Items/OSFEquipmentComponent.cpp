@@ -391,14 +391,25 @@ AOSFWeaponActor* UOSFEquipmentComponent::SpawnWeaponActor(UOSFWeaponData* Weapon
 		return nullptr;
 	}
 	Actor->InitializeWeapon(Weapon);
+	Actor->SetActorHiddenInGame(bHideWeaponMeshes);
 
 	const ACharacter* Character = Cast<ACharacter>(Owner);
 	USkeletalMeshComponent* Mesh = Character ? Character->GetMesh() : nullptr;
-	const FName Socket = (bTwoHanding && bRightHand) ? Weapon->TwoHandAttachSocket : (bRightHand ? Weapon->AttachSocket : FName(TEXT("hand_l")));
+	FName Socket = (bTwoHanding && bRightHand) ? Weapon->TwoHandAttachSocket : (bRightHand ? Weapon->AttachSocket : LeftHandSocket);
+	if (Mesh && Mesh->GetSkeletalMeshAsset() && !Mesh->DoesSocketExist(Socket))
+	{
+		Socket = bRightHand ? RightHandSocket : LeftHandSocket;
+	}
 	const AOSFCharacterBase* OSFCharacter = Cast<AOSFCharacterBase>(Owner);
 	if (Mesh && Mesh->GetSkeletalMeshAsset() && Mesh->DoesSocketExist(Socket))
 	{
 		Actor->AttachToComponent(Mesh, FAttachmentTransformRules::SnapToTargetNotIncludingScale, Socket);
+		if (bAlignWeaponsToOwner)
+		{
+			Actor->bAlignToOwnerFacing = true;
+			Actor->FacingOffset = bRightHand ? RightHandFacingOffset : LeftHandFacingOffset;
+			Actor->SetActorTickEnabled(true);
+		}
 	}
 	else if (OSFCharacter && OSFCharacter->GetProceduralHand(bRightHand))
 	{
@@ -413,8 +424,8 @@ AOSFWeaponActor* UOSFEquipmentComponent::SpawnWeaponActor(UOSFWeaponData* Weapon
 
 void UOSFEquipmentComponent::SetWeaponsHidden(bool bHidden)
 {
-	if (RightWeaponActor) { RightWeaponActor->SetActorHiddenInGame(bHidden); }
-	if (LeftWeaponActor) { LeftWeaponActor->SetActorHiddenInGame(bHidden); }
+	if (RightWeaponActor) { RightWeaponActor->SetActorHiddenInGame(bHidden || bHideWeaponMeshes); }
+	if (LeftWeaponActor) { LeftWeaponActor->SetActorHiddenInGame(bHidden || bHideWeaponMeshes); }
 }
 
 void UOSFEquipmentComponent::ApplyModifiers()
@@ -515,3 +526,157 @@ void UOSFEquipmentComponent::Changed()
 }
 
 #undef LOCTEXT_NAMESPACE
+
+// --- Ranged ---------------------------------------------------------------------
+
+UOSFWeaponData* UOSFEquipmentComponent::GetActiveRangedWeapon() const
+{
+	if (UOSFWeaponData* Right = GetEquippedWeapon(true); Right && Right->IsRanged())
+	{
+		return Right;
+	}
+	if (UOSFWeaponData* Left = GetEquippedWeapon(false); Left && Left->IsRanged())
+	{
+		return Left;
+	}
+	return nullptr;
+}
+
+FOSFMagazine& UOSFEquipmentComponent::FindOrAddMagazine(const UOSFWeaponData* Weapon)
+{
+	FOSFMagazine& Magazine = Magazines.FindOrAdd(Weapon->ItemId);
+	if (!Magazine.Ammo && Weapon->Ranged.Ammo.Num() > 0)
+	{
+		Magazine.Ammo = Weapon->Ranged.Ammo[0];
+	}
+	return Magazine;
+}
+
+FOSFMagazine UOSFEquipmentComponent::GetMagazine(const UOSFWeaponData* Weapon) const
+{
+	if (!Weapon || !Weapon->IsRanged())
+	{
+		return FOSFMagazine();
+	}
+	if (const FOSFMagazine* Found = Magazines.Find(Weapon->ItemId))
+	{
+		return *Found;
+	}
+	FOSFMagazine Default;
+	Default.Ammo = Weapon->Ranged.Ammo.Num() > 0 ? Weapon->Ranged.Ammo[0] : nullptr;
+	return Default;
+}
+
+int32 UOSFEquipmentComponent::GetReserveRounds(const UOSFWeaponData* Weapon) const
+{
+	const UOSFInventoryComponent* Inventory = OSF::Get<UOSFInventoryComponent>(GetOwner());
+	const FOSFMagazine Magazine = GetMagazine(Weapon);
+	return (Inventory && Magazine.Ammo) ? Inventory->GetItemCount(Magazine.Ammo) : 0;
+}
+
+bool UOSFEquipmentComponent::CanReload(const UOSFWeaponData* Weapon) const
+{
+	if (!Weapon || !Weapon->IsRanged())
+	{
+		return false;
+	}
+	return GetMagazine(Weapon).Rounds < Weapon->Ranged.MagazineSize && GetReserveRounds(Weapon) > 0;
+}
+
+int32 UOSFEquipmentComponent::Reload(UOSFWeaponData* Weapon)
+{
+	UOSFInventoryComponent* Inventory = OSF::Get<UOSFInventoryComponent>(GetOwner());
+	if (!Weapon || !Weapon->IsRanged() || !Inventory)
+	{
+		return 0;
+	}
+	FOSFMagazine& Magazine = FindOrAddMagazine(Weapon);
+	if (!Magazine.Ammo)
+	{
+		return 0;
+	}
+	const int32 Wanted = FMath::Max(0, Weapon->Ranged.MagazineSize - Magazine.Rounds);
+	const int32 Loaded = FMath::Min(Wanted, Inventory->GetItemCount(Magazine.Ammo));
+	if (Loaded > 0)
+	{
+		Inventory->RemoveItem(Magazine.Ammo, Loaded);
+		Magazine.Rounds += Loaded;
+		Changed();
+	}
+	return Loaded;
+}
+
+void UOSFEquipmentComponent::FillMagazine(UOSFWeaponData* Weapon, UOSFAmmoData* Ammo)
+{
+	if (!Weapon || !Weapon->IsRanged())
+	{
+		return;
+	}
+	FOSFMagazine& Magazine = FindOrAddMagazine(Weapon);
+	if (Ammo && Ammo != Magazine.Ammo)
+	{
+		SelectAmmo(Weapon, Ammo);
+	}
+	Magazine.Rounds = Weapon->Ranged.MagazineSize;
+	Changed();
+}
+
+bool UOSFEquipmentComponent::ConsumeRound(UOSFWeaponData* Weapon)
+{
+	if (!Weapon || !Weapon->IsRanged())
+	{
+		return false;
+	}
+	FOSFMagazine& Magazine = FindOrAddMagazine(Weapon);
+	if (Magazine.Rounds <= 0)
+	{
+		return false;
+	}
+	--Magazine.Rounds;
+	Changed();
+	return true;
+}
+
+bool UOSFEquipmentComponent::SelectAmmo(UOSFWeaponData* Weapon, UOSFAmmoData* Ammo)
+{
+	if (!Weapon || !Weapon->IsRanged() || !Ammo || !Weapon->Ranged.Ammo.Contains(Ammo))
+	{
+		return false;
+	}
+	FOSFMagazine& Magazine = FindOrAddMagazine(Weapon);
+	if (Magazine.Ammo == Ammo)
+	{
+		return true;
+	}
+	if (Magazine.Ammo && Magazine.Rounds > 0)
+	{
+		if (UOSFInventoryComponent* Inventory = OSF::Get<UOSFInventoryComponent>(GetOwner()))
+		{
+			Inventory->AddItem(Magazine.Ammo, Magazine.Rounds, false);
+		}
+	}
+	Magazine.Ammo = Ammo;
+	Magazine.Rounds = 0;
+	Changed();
+	return true;
+}
+
+bool UOSFEquipmentComponent::CycleAmmo(UOSFWeaponData* Weapon)
+{
+	if (!Weapon || !Weapon->IsRanged() || Weapon->Ranged.Ammo.Num() < 2)
+	{
+		return false;
+	}
+	const UOSFInventoryComponent* Inventory = OSF::Get<UOSFInventoryComponent>(GetOwner());
+	const FOSFMagazine& Magazine = FindOrAddMagazine(Weapon);
+	const int32 Current = FMath::Max(0, Weapon->Ranged.Ammo.IndexOfByKey(Magazine.Ammo));
+	for (int32 Step = 1; Step < Weapon->Ranged.Ammo.Num(); ++Step)
+	{
+		UOSFAmmoData* Next = Weapon->Ranged.Ammo[(Current + Step) % Weapon->Ranged.Ammo.Num()];
+		if (Next && Inventory && Inventory->GetItemCount(Next) > 0)
+		{
+			return SelectAmmo(Weapon, Next);
+		}
+	}
+	return false;
+}

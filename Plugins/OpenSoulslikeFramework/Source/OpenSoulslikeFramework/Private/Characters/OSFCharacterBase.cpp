@@ -11,6 +11,8 @@
 #include "Items/OSFInventoryComponent.h"
 #include "Items/OSFEquipmentComponent.h"
 #include "Interaction/OSFLadder.h"
+#include "Animation/OSFClipAnimInstance.h"
+#include "Engine/SkeletalMesh.h"
 #include "OSFGameplayTags.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -92,7 +94,13 @@ void AOSFCharacterBase::BeginPlay()
 	bProceduralVisuals = !(GetMesh() && GetMesh()->GetSkeletalMeshAsset());
 	VisualRoot->SetVisibility(bProceduralVisuals, true);
 	VisualRoot->SetRelativeScale3D(FVector(VisualScale));
-	if (bProceduralVisuals)
+	if (bProceduralVisuals && BodyStaticMesh)
+	{
+		BodyMesh->SetStaticMesh(BodyStaticMesh);
+		BodyMesh->SetRelativeTransform(BodyStaticMeshTransform);
+		HeadMesh->SetVisibility(false);
+	}
+	else if (bProceduralVisuals)
 	{
 		BodyMaterial = BodyMesh->CreateDynamicMaterialInstance(0);
 		if (UMaterialInstanceDynamic* HeadMaterial = HeadMesh->CreateDynamicMaterialInstance(0))
@@ -103,6 +111,11 @@ void AOSFCharacterBase::BeginPlay()
 		{
 			BodyMaterial->SetVectorParameterValue(TEXT("Color"), BodyColor);
 		}
+	}
+
+	if (!bProceduralVisuals)
+	{
+		InitClipAnimation();
 	}
 
 	Combat->OnDeath.AddDynamic(this, &AOSFCharacterBase::HandleDeath);
@@ -229,6 +242,105 @@ void AOSFCharacterBase::Tick(float DeltaSeconds)
 	{
 		UpdateProceduralVisuals(DeltaSeconds);
 	}
+	else if (GetClipAnimInstance())
+	{
+		UpdateSkeletalPose(DeltaSeconds);
+	}
+}
+
+UOSFClipAnimInstance* AOSFCharacterBase::GetClipAnimInstance() const
+{
+	return GetMesh() ? Cast<UOSFClipAnimInstance>(GetMesh()->GetAnimInstance()) : nullptr;
+}
+
+void AOSFCharacterBase::InitClipAnimation()
+{
+	USkeletalMeshComponent* SkeletalMesh = GetMesh();
+	if (!SkeletalMesh || !SkeletalMesh->GetSkeletalMeshAsset() || !IdleClip.IsValid())
+	{
+		return;
+	}
+	const UClass* AnimClass = SkeletalMesh->GetAnimClass();
+	if (AnimClass && !AnimClass->IsChildOf(UOSFClipAnimInstance::StaticClass()))
+	{
+		return;	// the project supplies its own anim blueprint
+	}
+	if (!GetClipAnimInstance())
+	{
+		SkeletalMesh->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+		SkeletalMesh->SetAnimInstanceClass(UOSFClipAnimInstance::StaticClass());
+	}
+	if (UOSFClipAnimInstance* ClipAnim = GetClipAnimInstance())
+	{
+		ClipAnim->WalkSpeed = ClipLocomotionSpeeds.X;
+		ClipAnim->RunSpeed = ClipLocomotionSpeeds.Y;
+		ClipAnim->SetLocomotion(IdleClip, WalkClip, RunClip);
+	}
+}
+
+void AOSFCharacterBase::SetupSkeletalMesh(USkeletalMesh* NewMesh, float TargetHeight, float YawOffset)
+{
+	USkeletalMeshComponent* SkeletalMesh = GetMesh();
+	if (!NewMesh || !SkeletalMesh)
+	{
+		return;
+	}
+	SkeletalMesh->SetSkeletalMeshAsset(NewMesh);
+	const FBox Box = NewMesh->GetImportedBounds().GetBox();
+	const float Height = FMath::Max(Box.GetSize().Z, 1.f);
+	const float Scale = TargetHeight / Height;
+	const float HalfHeight = GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight();
+	SkeletalMesh->SetRelativeScale3D(FVector(Scale));
+	SkeletalMesh->SetRelativeLocationAndRotation(FVector(0.f, 0.f, -HalfHeight - Box.Min.Z * Scale), FRotator(0.f, YawOffset, 0.f));
+	SkeletalMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	MeshBaseTransform = SkeletalMesh->GetRelativeTransform();
+	bMeshBaseCaptured = true;
+	bProceduralVisuals = false;
+	VisualRoot->SetVisibility(false, true);
+	if (HasActorBegunPlay())
+	{
+		InitClipAnimation();
+		Equipment->RefreshEquipment();
+	}
+}
+
+void AOSFCharacterBase::UpdateSkeletalPose(float DeltaSeconds)
+{
+	USkeletalMeshComponent* SkeletalMesh = GetMesh();
+	if (!bMeshBaseCaptured)
+	{
+		MeshBaseTransform = SkeletalMesh->GetRelativeTransform();
+		bMeshBaseCaptured = true;
+	}
+	FRotator Lean = FRotator::ZeroRotator;
+	if (IsDead())
+	{
+		DeathFall = FMath::Min(1.f, DeathFall + DeltaSeconds * 2.2f);
+		Lean = FRotator(0.f, 0.f, 82.f * FMath::InterpEaseIn(0.f, 1.f, DeathFall, 2.f));
+	}
+	else if (HasStateTag(OSFTags::State_PoiseBroken) || HasStateTag(OSFTags::State_BeingExecuted))
+	{
+		Lean = FRotator(-24.f, 0.f, 0.f);
+	}
+	else if (HasStateTag(OSFTags::State_Staggered))
+	{
+		const float Time = static_cast<float>(GetWorld()->GetTimeSeconds());
+		Lean = FRotator(12.f, 0.f, FMath::Sin(Time * 40.f) * 4.f);
+	}
+	else if (HasStateTag(OSFTags::State_Dodging))
+	{
+		const UOSFAction* Current = ActionComponent->GetCurrentAction();
+		if (!(Current && Current->IsClipMode()))
+		{
+			Lean = FRotator(-28.f, 0.f, 0.f);
+		}
+	}
+	// Lean is expressed in actor space and applied around the feet.
+	SmoothedSwing = FMath::RInterpTo(SmoothedSwing, Lean, DeltaSeconds, IsDead() ? 30.f : 12.f);
+	const FQuat LeanQuat = SmoothedSwing.Quaternion();
+	SkeletalMesh->SetRelativeLocationAndRotation(LeanQuat.RotateVector(MeshBaseTransform.GetLocation()), LeanQuat * MeshBaseTransform.GetRotation());
+
+	// Hit flash on the mesh's materials is project specific; the overlay is left to the game.
 }
 
 void AOSFCharacterBase::UpdateStaminaRegen()
@@ -302,6 +414,14 @@ void AOSFCharacterBase::UpdateProceduralVisuals(float DeltaSeconds)
 	{
 		BodyScale = FVector(1.f, 1.f, 0.6f);
 	}
+	else if (HasStateTag(OSFTags::State_Attacking))
+	{
+		// Whole-body telegraph: lean back in the windup, lunge into the swing, settle in the recovery.
+		const UOSFAction* Current = ActionComponent->GetCurrentAction();
+		const EOSFActionPhase AttackPhase = Current ? Current->GetPhase() : EOSFActionPhase::None;
+		const float Pitch = AttackPhase == EOSFActionPhase::Windup ? 12.f : (AttackPhase == EOSFActionPhase::Active ? -16.f : -5.f);
+		BodyTarget = FRotator(Pitch, SwingOffset.Yaw * 0.2f, 0.f);
+	}
 
 	const bool bSnap = HasStateTag(OSFTags::State_Dodging);
 	const FRotator CurrentBody = VisualRoot->GetRelativeRotation();
@@ -368,6 +488,10 @@ void AOSFCharacterBase::HandleStateTagChanged(FGameplayTag Tag, bool bAdded)
 {
 	if (bAdded && (Tag == OSFTags::State_Staggered || Tag == OSFTags::State_PoiseBroken))
 	{
+		if (UOSFClipAnimInstance* ClipAnim = GetClipAnimInstance())
+		{
+			HitReactClip.IsValid() ? ClipAnim->PlayActionClip(HitReactClip) : ClipAnim->StopActionClip(0.1f);
+		}
 		SetSprinting(false);
 		if (CurrentLadder)
 		{
@@ -393,6 +517,15 @@ void AOSFCharacterBase::ResetCharacter(const FTransform& Transform)
 	}
 	DeathFall = 0.f;
 	SwingOffset = FRotator::ZeroRotator;
+	SmoothedSwing = FRotator::ZeroRotator;
+	if (bMeshBaseCaptured && !bProceduralVisuals && GetMesh())
+	{
+		GetMesh()->SetRelativeTransform(MeshBaseTransform);
+	}
+	if (UOSFClipAnimInstance* ClipAnim = GetClipAnimInstance())
+	{
+		ClipAnim->StopActionClip(0.f);
+	}
 	if (VisualRoot)
 	{
 		VisualRoot->SetRelativeRotation(FRotator::ZeroRotator);

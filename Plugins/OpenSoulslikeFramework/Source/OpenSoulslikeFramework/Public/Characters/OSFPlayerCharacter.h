@@ -11,6 +11,7 @@ class UCameraComponent;
 class UOSFLockOnComponent;
 class UOSFInteractionComponent;
 class UOSFProgressComponent;
+class UOSFQuestComponent;
 class UOSFInputConfig;
 class AOSFRestingPoint;
 class AOSFNPC;
@@ -56,6 +57,9 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "OSF")
 	TObjectPtr<UOSFProgressComponent> Progress;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "OSF")
+	TObjectPtr<UOSFQuestComponent> Quests;
 
 	/** Optional input assets. When null a default layout is generated at runtime. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "OSF|Input")
@@ -135,6 +139,10 @@ protected:
 	void InputCycleLeft();
 	void InputCycleQuick();
 	void InputTwoHand();
+	void InputFire();
+	void InputFireReleased();
+	void InputReload();
+	void InputCycleAmmo();
 	void InputMenu();
 	void InputMenuUp();
 	void InputMenuDown();
@@ -150,6 +158,7 @@ protected:
 	FTransform RespawnTransform;
 	FName LastRestingPointId;
 	double DodgePressTime = -1.0;
+	bool bFireHeld = false;
 	bool bDodgeHeld = false;
 	double LastTargetSwitchTime = 0.0;
 	FTimerHandle RespawnTimer;

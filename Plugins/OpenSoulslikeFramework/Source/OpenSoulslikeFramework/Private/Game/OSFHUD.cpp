@@ -15,6 +15,7 @@
 #include "Stats/OSFStatusEffectComponent.h"
 #include "Stats/OSFBuffComponent.h"
 #include "World/OSFCompassMarkerComponent.h"
+#include "Progression/OSFQuestComponent.h"
 #include "OSFGameplayTags.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
@@ -22,8 +23,32 @@
 #include "EngineUtils.h"
 #include "CanvasItem.h"
 
+#define LOCTEXT_NAMESPACE "OSFHUD"
+
 AOSFHUD::AOSFHUD()
 {
+	CurrencyLabel = LOCTEXT("Runes", "RUNES");
+	ControlsHint = LOCTEXT("Controls", "LMB light  Q heavy  RMB guard  F skill/parry  Space roll (hold: sprint)  C jump  Tab lock-on  R item  E interact  1/2/3 cycle  T two-hand  I menu");
+}
+
+#undef LOCTEXT_NAMESPACE
+
+UFont* AOSFHUD::GetHUDFont(bool bLarge)
+{
+	TObjectPtr<UFont>& Slot = bLarge ? LargeTextFont : TextFont;
+	if (!Slot)
+	{
+		// Runtime composite font: Roboto, with DroidSansFallback for every glyph Roboto lacks (CJK...).
+		const UFont* Base = bLarge ? GEngine->GetLargeFont() : GEngine->GetMediumFont();
+		UFont* Font = NewObject<UFont>(this, bLarge ? TEXT("OSFHUDFontLarge") : TEXT("OSFHUDFont"));
+		Font->FontCacheType = EFontCacheType::Runtime;
+		Font->LegacyFontSize = Base ? Base->LegacyFontSize : (bLarge ? 24 : 16);
+		const FString Fonts = FPaths::EngineContentDir() / TEXT("Slate/Fonts/");
+		Font->GetMutableInternalCompositeFont() = FCompositeFont(TEXT("Regular"), Fonts / (bLarge ? TEXT("Roboto-Bold.ttf") : TEXT("Roboto-Regular.ttf")), EFontHinting::Default, EFontLoadingPolicy::LazyLoad);
+		Font->GetMutableInternalCompositeFont().FallbackTypeface.Typeface.AppendFont(TEXT("Regular"), Fonts / TEXT("DroidSansFallback.ttf"), EFontHinting::Default, EFontLoadingPolicy::LazyLoad);
+		Slot = Font;
+	}
+	return Slot;
 }
 
 void AOSFHUD::DrawBar(float X, float Y, float Width, float Height, float Percent, const FLinearColor& Color, float Trail)
@@ -43,7 +68,7 @@ void AOSFHUD::DrawTextAt(const FString& Text, float X, float Y, const FLinearCol
 	{
 		return;
 	}
-	UFont* UseFont = Font ? Font : GEngine->GetMediumFont();
+	UFont* UseFont = Font ? Font : GetHUDFont(false);
 	float W = 0.f, H = 0.f;
 	Canvas->TextSize(UseFont, Text, W, H, TextScale * Scale, TextScale * Scale);
 	FCanvasTextItem Item(FVector2D(bCenter ? X - W * 0.5f : X, Y), FText::FromString(Text), UseFont, Color);
@@ -54,26 +79,32 @@ void AOSFHUD::DrawTextAt(const FString& Text, float X, float Y, const FLinearCol
 
 float AOSFHUD::DrawWrapped(const FString& Text, float X, float Y, float MaxWidth, const FLinearColor& Color, float TextScale)
 {
-	UFont* Font = GEngine->GetMediumFont();
+	UFont* Font = GetHUDFont(false);
 	TArray<FString> Paragraphs;
 	Text.ParseIntoArray(Paragraphs, TEXT("\n"), false);
 	float CursorY = Y;
 	const float LineHeight = Font->GetMaxCharHeight() * TextScale * Scale * 1.15f;
 	for (const FString& Paragraph : Paragraphs)
 	{
-		TArray<FString> Words;
-		Paragraph.ParseIntoArrayWS(Words);
+		// Character based wrapping (works for CJK text without spaces); breaks at the last space when there is one.
 		FString Line;
-		for (const FString& Word : Words)
+		for (int32 Index = 0; Index < Paragraph.Len(); ++Index)
 		{
-			const FString Candidate = Line.IsEmpty() ? Word : Line + TEXT(" ") + Word;
+			const FString Candidate = Line + Paragraph[Index];
 			float W = 0.f, H = 0.f;
 			Canvas->TextSize(Font, Candidate, W, H, TextScale * Scale, TextScale * Scale);
 			if (W > MaxWidth && !Line.IsEmpty())
 			{
+				int32 Space = INDEX_NONE;
+				FString Rest;
+				if (Line.FindLastChar(TEXT(' '), Space) && Space > 0 && Paragraph[Index] != TEXT(' '))
+				{
+					Rest = Line.Mid(Space + 1);
+					Line = Line.Left(Space);
+				}
 				DrawTextAt(Line, X, CursorY, Color, TextScale, false, Font);
 				CursorY += LineHeight;
-				Line = Word;
+				Line = (Rest + Paragraph[Index]).TrimStart();
 			}
 			else
 			{
@@ -114,6 +145,10 @@ void AOSFHUD::DrawHUD()
 	}
 	DrawStats(Player);
 	DrawEquipment(Player);
+	if (bShowQuestTracker && !PC->IsInMenu())
+	{
+		DrawQuests(Player);
+	}
 	DrawMenu(PC);
 	DrawNotifications(PC);
 	if (bShowControlsHint && !PC->IsInMenu())
@@ -195,16 +230,69 @@ void AOSFHUD::DrawEquipment(AOSFPlayerCharacter* Player)
 	const UOSFWeaponData* Right = Equipment->GetEquippedWeapon(true);
 	const UOSFWeaponData* Left = Equipment->GetEquippedWeapon(false);
 	const UOSFItemData* Quick = Equipment->GetActiveQuickItem();
-	DrawSlot(BaseX + Box * 1.1f, BaseY, TEXT("Spell"), TEXT(""), FLinearColor(0.3f, 0.3f, 0.5f));
-	DrawSlot(BaseX, BaseY + Box * 1.1f, Left ? Left->DisplayName.ToString() : TEXT("Unarmed"), TEXT("L"), Left ? Left->Tint : FLinearColor::Gray);
-	DrawSlot(BaseX + Box * 2.2f, BaseY + Box * 1.1f, Right ? Right->DisplayName.ToString() : TEXT("Unarmed"), Equipment->IsTwoHanding() ? TEXT("R (2H)") : TEXT("R"), Right ? Right->Tint : FLinearColor::Gray);
+	// Ranged weapon: the top slot shows the loaded ammo, the weapon slot magazine / reserve.
+	const UOSFWeaponData* Ranged = Equipment->GetActiveRangedWeapon();
+	const FOSFMagazine Magazine = Equipment->GetMagazine(Ranged);
+	if (Ranged && Magazine.Ammo)
+	{
+		DrawSlot(BaseX + Box * 1.1f, BaseY, Magazine.Ammo->DisplayName.ToString(), FString::Printf(TEXT("%d"), Equipment->GetReserveRounds(Ranged)), Magazine.Ammo->TracerColor);
+	}
+	else
+	{
+		DrawSlot(BaseX + Box * 1.1f, BaseY, NSLOCTEXT("OSFHUD", "Spell", "Spell").ToString(), TEXT(""), FLinearColor(0.3f, 0.3f, 0.5f));
+	}
+	auto HandSub = [&](const UOSFWeaponData* Weapon, const TCHAR* Hand)
+	{
+		if (Weapon && Weapon == Ranged)
+		{
+			return FString::Printf(TEXT("%d / %d"), Magazine.Rounds, Weapon->Ranged.MagazineSize);
+		}
+		return FString(Hand);
+	};
+	const FString Unarmed = NSLOCTEXT("OSFHUD", "Unarmed", "Unarmed").ToString();
+	DrawSlot(BaseX, BaseY + Box * 1.1f, Left ? Left->DisplayName.ToString() : Unarmed, HandSub(Left, TEXT("L")), Left ? Left->Tint : FLinearColor::Gray);
+	DrawSlot(BaseX + Box * 2.2f, BaseY + Box * 1.1f, Right ? Right->DisplayName.ToString() : Unarmed, HandSub(Right, Equipment->IsTwoHanding() ? TEXT("R (2H)") : TEXT("R")), Right ? Right->Tint : FLinearColor::Gray);
 	DrawSlot(BaseX + Box * 1.1f, BaseY + Box * 2.2f, Quick ? Quick->DisplayName.ToString() : TEXT("-"), Quick ? FString::Printf(TEXT("%d"), Player->Inventory->GetItemCount(Quick)) : TEXT(""), Quick ? Quick->Tint : FLinearColor::Gray);
 
 	// Currency
 	const FString Runes = FString::Printf(TEXT("%d"), Player->Inventory->GetCurrency());
 	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), Canvas->ClipX - S(260.f), Canvas->ClipY - S(80.f), S(220.f), S(42.f));
 	DrawTextAt(Runes, Canvas->ClipX - S(60.f) - S(10.f) * Runes.Len(), Canvas->ClipY - S(74.f), FLinearColor(1.f, 0.9f, 0.6f), 1.3f);
-	DrawTextAt(TEXT("RUNES"), Canvas->ClipX - S(250.f), Canvas->ClipY - S(70.f), FLinearColor(0.7f, 0.65f, 0.5f), 0.8f);
+	DrawTextAt(CurrencyLabel.ToString(), Canvas->ClipX - S(250.f), Canvas->ClipY - S(70.f), FLinearColor(0.7f, 0.65f, 0.5f), 0.8f);
+}
+
+void AOSFHUD::DrawQuests(AOSFPlayerCharacter* Player)
+{
+	const UOSFQuestComponent* Quests = Player->FindComponentByClass<UOSFQuestComponent>();
+	if (!Quests)
+	{
+		return;
+	}
+	const float X = Canvas->ClipX - S(440.f);
+	float Y = S(96.f);
+	for (const UOSFQuestData* Quest : Quests->GetActiveQuests())
+	{
+		DrawTextAt(Quest->Title.ToString(), X, Y, FLinearColor(1.f, 0.85f, 0.5f), 0.95f);
+		Y += S(24.f);
+		for (int32 Index = 0; Index < Quest->Objectives.Num(); ++Index)
+		{
+			const FOSFQuestObjective& Objective = Quest->Objectives[Index];
+			const int32 Done = Quests->GetObjectiveProgress(Quest, Index);
+			const bool bComplete = Done >= Objective.Count;
+			if (Quest->bSequential && !bComplete && Index != Quests->GetCurrentObjective(Quest))
+			{
+				continue;
+			}
+			FString Line = (bComplete ? TEXT("+ ") : TEXT("- ")) + Objective.Description.ToString();
+			if (Objective.Count > 1)
+			{
+				Line += FString::Printf(TEXT("  %d/%d"), Done, Objective.Count);
+			}
+			DrawTextAt(Line, X + S(10.f), Y, bComplete ? FLinearColor(0.55f, 0.55f, 0.5f) : FLinearColor::White, 0.8f);
+			Y += S(20.f);
+		}
+		Y += S(10.f);
+	}
 }
 
 void AOSFHUD::DrawCompass(AOSFPlayerCharacter* Player)
@@ -284,7 +372,7 @@ void AOSFHUD::DrawEnemyBars(AOSFPlayerCharacter* Player)
 		DrawBar(Screen.X - S(50.f), Screen.Y, S(100.f), S(7.f), Enemy->Stats->GetPercent(OSFTags::Stat_Health), FLinearColor(0.6f, 0.05f, 0.05f));
 		if (Enemy->HasStateTag(OSFTags::State_PoiseBroken))
 		{
-			DrawTextAt(TEXT("RIPOSTE!"), Screen.X, Screen.Y - S(26.f), FLinearColor(1.f, 0.85f, 0.2f), 0.8f, true);
+			DrawTextAt(NSLOCTEXT("OSFHUD", "Riposte", "RIPOSTE!").ToString(), Screen.X, Screen.Y - S(26.f), FLinearColor(1.f, 0.85f, 0.2f), 0.8f, true);
 		}
 	}
 	if (LockTarget)
@@ -340,10 +428,10 @@ void AOSFHUD::DrawNotifications(AOSFPlayerController* PC)
 		case EOSFNotifyType::Banner:
 		{
 			const FString Text = Notification.Text.ToString();
-			const bool bDeath = Text.Contains(TEXT("DIED"));
+			const bool bDeath = Text == NSLOCTEXT("OSFPlayer", "YouDied", "YOU DIED").ToString();
 			const FLinearColor Color = bDeath ? FLinearColor(0.75f, 0.05f, 0.05f, Alpha) : FLinearColor(1.f, 0.85f, 0.45f, Alpha);
 			DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.55f * Alpha), 0.f, Canvas->ClipY * 0.42f, Canvas->ClipX, S(120.f));
-			DrawTextAt(Text, Canvas->ClipX * 0.5f, Canvas->ClipY * 0.42f + S(28.f), Color, 3.2f, true, GEngine->GetLargeFont());
+			DrawTextAt(Text, Canvas->ClipX * 0.5f, Canvas->ClipY * 0.42f + S(28.f), Color, 3.2f, true, GetHUDFont(true));
 			break;
 		}
 		case EOSFNotifyType::Hint:
@@ -415,7 +503,7 @@ void AOSFHUD::DrawMenu(AOSFPlayerController* PC)
 		if (!Value.IsEmpty())
 		{
 			float W = 0.f, H = 0.f;
-			Canvas->TextSize(GEngine->GetMediumFont(), Value, W, H, Scale, Scale);
+			Canvas->TextSize(GetHUDFont(false), Value, W, H, Scale, Scale);
 			DrawTextAt(Value, PanelX + PanelW - S(26.f) - W, Y, Entry.bEnabled ? FLinearColor(0.9f, 0.85f, 0.7f) : FLinearColor(0.45f, 0.45f, 0.45f), 1.f);
 		}
 		Y += RowH;
@@ -429,7 +517,7 @@ void AOSFHUD::DrawMenu(AOSFPlayerController* PC)
 		DrawRect(FLinearColor(0.03f, 0.03f, 0.03f, 0.85f), DX, PanelY, DW, S(480.f));
 		DrawWrapped(Details, DX + S(24.f), PanelY + S(24.f), DW - S(48.f), FLinearColor(0.9f, 0.9f, 0.9f), 0.95f);
 	}
-	DrawTextAt(TEXT("[W/S] select   [A/D] adjust   [Enter/E] confirm   [Backspace] back"), PanelX, Canvas->ClipY - S(60.f), FLinearColor(0.7f, 0.7f, 0.7f), 0.8f);
+	DrawTextAt(NSLOCTEXT("OSFHUD", "MenuKeys", "[W/S] select   [A/D] adjust   [Enter/E] confirm   [Backspace] back").ToString(), PanelX, Canvas->ClipY - S(60.f), FLinearColor(0.7f, 0.7f, 0.7f), 0.8f);
 }
 
 void AOSFHUD::DrawControls()
@@ -440,6 +528,6 @@ void AOSFHUD::DrawControls()
 		return;
 	}
 	const float Alpha = FMath::Clamp(static_cast<float>(25.0 - Elapsed) / 3.f, 0.f, 1.f);
-	DrawTextAt(TEXT("LMB light  Q heavy  RMB guard  F skill/parry  Space roll (hold: sprint)  C jump  Tab lock-on  R item  E interact  1/2/3 cycle  T two-hand  I menu"),
+	DrawTextAt(ControlsHint.ToString(),
 		Canvas->ClipX * 0.5f, Canvas->ClipY - S(34.f), FLinearColor(0.85f, 0.85f, 0.85f, Alpha), 0.75f, true);
 }

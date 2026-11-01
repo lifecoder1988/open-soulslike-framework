@@ -2,6 +2,7 @@
 
 #include "Actions/OSFActionComponent.h"
 #include "Actions/OSFActions.h"
+#include "Actions/OSFRangedActions.h"
 #include "Engine/World.h"
 
 UOSFActionComponent::UOSFActionComponent()
@@ -40,7 +41,9 @@ void UOSFActionComponent::CreateDefaultActions()
 			UOSFAction_Parry::StaticClass(),
 			UOSFAction_UseItem::StaticClass(),
 			UOSFAction_Execute::StaticClass(),
-			UOSFAction_AIAbility::StaticClass()
+			UOSFAction_AIAbility::StaticClass(),
+			UOSFAction_Shoot::StaticClass(),
+			UOSFAction_Reload::StaticClass()
 		};
 	}
 

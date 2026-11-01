@@ -52,6 +52,9 @@ UOSFInputConfig* UOSFInputConfig::BuildDefault(UObject* Outer)
 	Config->CycleLeft = MakeAction(Config, TEXT("IA_CycleLeft"), EInputActionValueType::Boolean);
 	Config->CycleQuick = MakeAction(Config, TEXT("IA_CycleQuick"), EInputActionValueType::Boolean);
 	Config->TwoHand = MakeAction(Config, TEXT("IA_TwoHand"), EInputActionValueType::Boolean);
+	Config->Fire = MakeAction(Config, TEXT("IA_Fire"), EInputActionValueType::Boolean);
+	Config->Reload = MakeAction(Config, TEXT("IA_Reload"), EInputActionValueType::Boolean);
+	Config->CycleAmmo = MakeAction(Config, TEXT("IA_CycleAmmo"), EInputActionValueType::Boolean);
 	Config->Menu = MakeAction(Config, TEXT("IA_Menu"), EInputActionValueType::Boolean);
 	Config->MenuUp = MakeAction(Config, TEXT("IA_MenuUp"), EInputActionValueType::Boolean);
 	Config->MenuDown = MakeAction(Config, TEXT("IA_MenuDown"), EInputActionValueType::Boolean);

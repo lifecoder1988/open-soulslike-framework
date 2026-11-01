@@ -7,7 +7,9 @@
 
 AOSFWeaponActor::AOSFWeaponActor()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = false;
+	PrimaryActorTick.TickGroup = TG_PostUpdateWork;
 	Root = CreateDefaultSubobject<USceneComponent>(TEXT("Root"));
 	SetRootComponent(Root);
 	Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
@@ -16,6 +18,15 @@ AOSFWeaponActor::AOSFWeaponActor()
 	Mesh->SetGenerateOverlapEvents(false);
 	Mesh->SetCanEverAffectNavigation(false);
 	Mesh->CastShadow = true;
+}
+
+void AOSFWeaponActor::Tick(float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	if (bAlignToOwnerFacing && GetOwner())
+	{
+		SetActorRotation(FRotator(0.f, GetOwner()->GetActorRotation().Yaw, 0.f) + FacingOffset);
+	}
 }
 
 void AOSFWeaponActor::InitializeWeapon(UOSFWeaponData* InData)

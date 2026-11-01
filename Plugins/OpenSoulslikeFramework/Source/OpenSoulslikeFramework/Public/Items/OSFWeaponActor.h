@@ -47,4 +47,16 @@ public:
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "Weapon")
 	void OnTraceStateChanged(bool bTracing);
+
+	/**
+	 * Keep the weapon pointing along the owner's facing (plus FacingOffset) while it follows the hand's position.
+	 * For imported rigs whose hand bone axes are unknown (set by UOSFEquipmentComponent::bAlignWeaponsToOwner).
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	bool bAlignToOwnerFacing = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Weapon")
+	FRotator FacingOffset = FRotator::ZeroRotator;
+
+	virtual void Tick(float DeltaSeconds) override;
 };

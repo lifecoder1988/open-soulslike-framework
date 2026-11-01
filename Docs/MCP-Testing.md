@@ -39,6 +39,7 @@ Live Coding works through MCP too: type `LiveCoding.Compile` into the console, t
 | `OSFGoTo <filter>` | teleports in front of an actor (`NPC`, `Container`, `Door`, `Ladder`, `RestingPoint`, `FogGate`…) |
 | `OSFInteract` | interacts with the focused interactable |
 | `OSFMenu <up/down/left/right/confirm/back/open>` | drives the menus |
+| `OSFCycleAmmo`, `OSFFace <filter>` | next ammo type + reload / turn player and camera to an actor |
 | `OSFLockOn`, `OSFGod`, `OSFHeal`, `OSFKillAll`, `OSFRest`, `OSFGiveRunes n`, `OSFGiveItem id n`, `OSFSave n`, `OSFLoad n`, `OSFDebugTraces` | utilities |
 
 ## End-to-end walkthrough
@@ -85,6 +86,9 @@ Example output (UE 5.8, Windows):
 | `OSF.Save.CaptureAndApplyRoundTrip` | save capture and apply |
 | `OSF.Progress.DialogSelectionAndVendor` | progress-driven dialogue, vendor stock, buying and selling |
 | `OSF.AI.AbilitySelectionAndBossPhases` | ability ranges and cooldowns, boss phase transitions |
+| `OSF.Ranged.MagazineReloadAmmoNegation` | empty-gun reload redirect, magazine / reserve, ammo cycling, damage vs negation, bullets pass trigger volumes |
+| `OSF.Combat.PerilousCounterAndLongFrames` | perilous windup, melee vs projectile counter, stance break, active window kept on a 0.5 s frame |
+| `OSF.Progress.QuestObjectives` | quest start flag, kill counting through enemy death, flag objective, rewards, saved done flag |
 
 Run them headless with `UnrealEditor-Cmd OSFDemo.uproject -ExecCmds="Automation RunTests OSF;Quit" -unattended -NullRHI -testexit="Automation Test Queue Empty"`,
 or through MCP with `AutomationTestToolset.RunTestsByFilter`.

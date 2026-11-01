@@ -32,10 +32,22 @@ Feature list of the commercial Soulslike Framework (from its forum post) compare
 | Animations and art | ❌ | none bundled (license); procedural presentation instead |
 | Network replication | ❌ | single player |
 
+### Beyond the reference feature list (OSF 0.2)
+
+| Feature | Status | Notes |
+|---|---|---|
+| Ranged weapons (hitscan) | ✅ | `FOSFRangedStats` on any weapon, `UOSFAmmoData` items, magazines per weapon, reload / ammo cycling, pellets, spread, aim assist, tracers; `Action.Shoot` / `Action.Reload` |
+| Perilous attacks and counters | ✅ | `bPerilous` attacks give `State.Perilous` in the windup; a hit with a matching source tag (e.g. `Source.Projectile`) cancels the attack and breaks the stance |
+| Hit sources and negation feedback | ✅ | `FOSFDamageSpec::SourceTags`, `FOSFHitInfo::NegatedFraction` (ricochet / "no effect" feedback), `bCountered` |
+| Clip animation without anim blueprints | ✅ | `UOSFClipAnimInstance`: idle / walk / run by speed + trimmed action clips (`FOSFAnimClip` = sequence, start, end, rate, loop); root locked to the reference pose for in-place clips (glTF imports) |
+| Imported skeletal characters | ✅ | `AOSFCharacterBase::SetupSkeletalMesh` (height, feet, yaw), per-skeleton hand sockets, weapons aligned to the owner for unknown bone axes, static-mesh bodies for unrigged models |
+| Quests | ✅ | `UOSFQuestData` (kill / flag / progress / item objectives, rewards) tracked through progress flags and counters, so quests save with the game; HUD tracker |
+| Runtime translations | ✅ | `UOSFLocalization::LoadTranslationTable` registers a JSON table as polyglot text (template: `Tools/Localization/extract_osf_text.py`); the HUD font falls back to CJK glyphs |
+
 ## Roadmap
 
 - UMG widget set
 - Editor utilities: item creator, enemy wizard, data validation
-- Spells and catalysts, projectiles, AoE notifies
+- Spells and catalysts, physical projectiles (hitscan guns are in), AoE notifies
 - Network replication
 - Example Blueprint project using the UE5 mannequin

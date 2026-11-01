@@ -5,6 +5,7 @@
 #include "Stats/OSFStatComponent.h"
 #include "Characters/OSFCharacterBase.h"
 #include "OSFGameplayTags.h"
+#include "Animation/OSFClipAnimInstance.h"
 #include "Animation/AnimInstance.h"
 #include "Animation/AnimMontage.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -105,6 +106,29 @@ void UOSFAction::Start()
 		}
 	}
 
+	bClipMode = false;
+	if (!bMontageMode)
+	{
+		const FOSFAnimClip* ToPlay = GetClipToPlay();
+		ACharacter* Character = GetCharacter();
+		UOSFClipAnimInstance* ClipAnim = Character && Character->GetMesh() ? Cast<UOSFClipAnimInstance>(Character->GetMesh()->GetAnimInstance()) : nullptr;
+		if (ToPlay && ToPlay->IsValid() && ClipAnim)
+		{
+			ClipTiming = GetTiming();
+			const float Total = ClipTiming.GetTotal();
+			const float ClipDuration = ToPlay->GetDuration();
+			ClipAnim->PlayActionClip(*ToPlay, (bFitClipToTiming && !ToPlay->bLoop) ? Total : -1.f);
+			if (!bFitClipToTiming && Total > KINDA_SMALL_NUMBER && ClipDuration > KINDA_SMALL_NUMBER && !ToPlay->bLoop)
+			{
+				const float Scale = ClipDuration / Total;
+				ClipTiming.Windup *= Scale;
+				ClipTiming.Active *= Scale;
+				ClipTiming.Recovery *= Scale;
+			}
+			bClipMode = true;
+		}
+	}
+
 	SetPhase(EOSFActionPhase::Windup);
 	OnStarted();
 	K2_OnStarted();
@@ -138,7 +162,7 @@ void UOSFAction::TickAction(float DeltaTime)
 
 void UOSFAction::UpdateProceduralTimeline()
 {
-	const FOSFActionTiming& T = GetTiming();
+	const FOSFActionTiming& T = GetEffectiveTiming();
 	const float ActiveStart = T.Windup;
 	const float ActiveEnd = T.Windup + T.Active;
 	const float CancelStart = ActiveEnd + T.Recovery * T.CancelWindowStart;
@@ -154,6 +178,16 @@ void UOSFAction::UpdateProceduralTimeline()
 	}
 	else
 	{
+		// A long frame (hitch, low frame rate, very short active window) must not skip the active window:
+		// open it for this frame so traces / shots still happen, then move on to the recovery.
+		if (Phase == EOSFActionPhase::Windup || Phase == EOSFActionPhase::None)
+		{
+			SetPhase(EOSFActionPhase::Active);
+		}
+		if (!bRunning)
+		{
+			return;
+		}
 		SetPhase(EOSFActionPhase::Recovery);
 		if (Elapsed >= CancelStart && !IsWindowOpen(EOSFActionWindow::Cancel))
 		{
@@ -260,6 +294,16 @@ void UOSFAction::Finish(bool bInterrupted)
 				}
 			}
 		}
+	}
+
+	if (bClipMode)
+	{
+		ACharacter* Character = GetCharacter();
+		if (UOSFClipAnimInstance* ClipAnim = Character && Character->GetMesh() ? Cast<UOSFClipAnimInstance>(Character->GetMesh()->GetAnimInstance()) : nullptr)
+		{
+			ClipAnim->StopActionClip(bInterrupted ? 0.12f : -1.f);
+		}
+		bClipMode = false;
 	}
 
 	ActionComponent->RemoveStateTags(GrantedTags);

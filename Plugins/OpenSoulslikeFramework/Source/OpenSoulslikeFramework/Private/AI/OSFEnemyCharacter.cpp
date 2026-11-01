@@ -1,6 +1,7 @@
 // Copyright Open Soulslike Framework contributors. MIT License.
 
 #include "AI/OSFEnemyCharacter.h"
+#include "Progression/OSFQuestComponent.h"
 #include "AI/OSFAIController.h"
 #include "AI/OSFAICombatComponent.h"
 #include "AI/OSFBossComponent.h"
@@ -104,6 +105,10 @@ void AOSFEnemyCharacter::HandleDeath(UOSFCombatComponent* InCombat, AActor* Kill
 	AOSFPlayerCharacter* Player = Cast<AOSFPlayerCharacter>(Killer);
 	if (Player)
 	{
+		if (UOSFQuestComponent* Quests = Player->FindComponentByClass<UOSFQuestComponent>())
+		{
+			Quests->NotifyKill(KillKey.IsNone() ? GetClass()->GetFName() : KillKey);
+		}
 		const int32 Reward = CurrencyReward;
 		Player->Inventory->AddCurrency(Reward);
 		for (const FOSFLootEntry& Entry : Loot)

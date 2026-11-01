@@ -11,6 +11,9 @@
 class UOSFItemData;
 class UOSFProgressComponent;
 class AOSFPlayerCharacter;
+class USkeletalMeshComponent;
+class USkeletalMesh;
+class UAnimSequenceBase;
 
 /** One conversation. The first entry whose conditions pass is played. */
 USTRUCT(BlueprintType)
@@ -115,6 +118,14 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NPC")
 	TObjectPtr<UStaticMeshComponent> HeadMesh;
+
+	/** Optional animated body (replaces the basic-shape body when a skeletal mesh is set). */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "NPC")
+	TObjectPtr<USkeletalMeshComponent> SkeletalBody;
+
+	/** Uses a skeletal mesh scaled to TargetHeight (cm), feet on the ground, looping IdleAnimation. */
+	UFUNCTION(BlueprintCallable, Category = "NPC")
+	void SetupSkeletalBody(USkeletalMesh* InMesh, float TargetHeight, float YawOffset = -90.f, UAnimSequenceBase* IdleAnimation = nullptr);
 
 	virtual void Interact_Implementation(AActor* Interactor) override;
 	virtual FText GetInteractionPrompt_Implementation(AActor* Interactor) const override;

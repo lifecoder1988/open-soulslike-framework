@@ -181,6 +181,10 @@ public:
 	UFUNCTION(Exec) void OSFLoad(int32 Slot);
 	UFUNCTION(Exec) void OSFAction(const FString& ActionTag);
 	UFUNCTION(Exec) void OSFLockOn();
+	/** Ranged weapons: switch to the next ammo type that has rounds, then reload. */
+	UFUNCTION(Exec) void OSFCycleAmmo();
+	/** Turns the player and camera towards the first actor whose name or class contains Filter. */
+	UFUNCTION(Exec) void OSFFace(const FString& Filter);
 	UFUNCTION(Exec) void OSFTeleport(float X, float Y, float Z);
 	UFUNCTION(Exec) void OSFDebugTraces();
 	UFUNCTION(Exec) void OSFStatus();

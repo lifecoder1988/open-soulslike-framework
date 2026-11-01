@@ -79,6 +79,7 @@ FOSFDamageSpec UOSFCombatLibrary::MakeAttackDamageSpec(const AActor* Attacker, c
 	}
 	Spec.bCanBeGuarded = Attack.bCanBeGuarded;
 	Spec.bCanBeParried = Attack.bCanBeParried;
+	Spec.SourceTags.AddTag(OSFTags::Source_Melee);
 	return Spec;
 }
 

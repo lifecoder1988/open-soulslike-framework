@@ -58,6 +58,7 @@ protected:
 	virtual FName GetMontageSection() const override { return CurrentAttack.MontageSection; }
 	virtual float GetMontagePlayRate() const override { return CurrentAttack.MontagePlayRate; }
 	virtual const FOSFActionTiming& GetTiming() const override { return CurrentAttack.Timing; }
+	virtual const FOSFAnimClip* GetClipToPlay() const override { return CurrentAttack.Clip.IsValid() ? &CurrentAttack.Clip : Super::GetClipToPlay(); }
 	virtual float GetStaminaCost() const override;
 	virtual float GetFPCost() const override;
 

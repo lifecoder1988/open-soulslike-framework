@@ -35,6 +35,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Enemy")
 	int32 CurrencyReward = 100;
 
+	/** Counted by Kill quest objectives ("Kill.<KillKey>" progress counter). Defaults to the class name. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Enemy")
+	FName KillKey;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Enemy")
 	TArray<FOSFLootEntry> Loot;
 

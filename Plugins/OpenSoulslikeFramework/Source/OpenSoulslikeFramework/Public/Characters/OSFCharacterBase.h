@@ -18,6 +18,7 @@ class UOSFEquipmentComponent;
 class UOSFWeaponTraceComponent;
 class UStaticMeshComponent;
 class UMaterialInstanceDynamic;
+class UOSFClipAnimInstance;
 class AOSFLadder;
 
 /**
@@ -89,6 +90,47 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "OSF|Procedural")
 	bool UsesProceduralVisuals() const { return bProceduralVisuals; }
+
+	/**
+	 * Optional static mesh used as the procedural body instead of the capsule shapes (e.g. an unrigged scan or
+	 * generated model). It gets the same procedural motion (lean, stagger, roll, death fall).
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Procedural")
+	TObjectPtr<UStaticMesh> BodyStaticMesh = nullptr;
+
+	/** Transform of BodyStaticMesh relative to the feet (VisualRoot). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Procedural")
+	FTransform BodyStaticMeshTransform;
+
+	// --- Clip animation (skeletal mesh without an anim blueprint) ---
+
+	/** With a skeletal mesh and no anim class, these clips drive a UOSFClipAnimInstance. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	FOSFAnimClip IdleClip;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	FOSFAnimClip WalkClip;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	FOSFAnimClip RunClip;
+
+	/** Optional hit reaction clip (stagger / stance break). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	FOSFAnimClip HitReactClip;
+
+	/** Ground speeds at which the walk / run clips play at their own rate. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	FVector2D ClipLocomotionSpeeds = FVector2D(220.f, 520.f);
+
+	UFUNCTION(BlueprintPure, Category = "OSF|Animation")
+	UOSFClipAnimInstance* GetClipAnimInstance() const;
+
+	/**
+	 * Assigns a skeletal mesh at runtime: scales it to TargetHeight (cm), puts its feet on the capsule bottom and
+	 * applies YawOffset (meshes facing +Y need -90). Hides the procedural body. Call before or after BeginPlay.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "OSF|Animation")
+	void SetupSkeletalMesh(USkeletalMesh* NewMesh, float TargetHeight, float YawOffset = -90.f);
 
 	/** Attack swing offset applied to the right hand pivot (procedural mode). */
 	void SetProceduralSwing(float Yaw, float Pitch, float Roll = 0.f);
@@ -175,6 +217,9 @@ protected:
 
 	virtual void UpdateMovementSpeed();
 	virtual void UpdateProceduralVisuals(float DeltaSeconds);
+	/** Lean / stagger / death fall applied to the skeletal mesh (clip mode has no death or stagger clips by default). */
+	virtual void UpdateSkeletalPose(float DeltaSeconds);
+	void InitClipAnimation();
 	virtual void UpdateStaminaRegen();
 	virtual void UpdateLadder(float DeltaSeconds);
 
@@ -192,5 +237,7 @@ protected:
 	float HitFlash = 0.f;
 	float DeathFall = 0.f;
 	FRotator SwingOffset = FRotator::ZeroRotator;
+	FTransform MeshBaseTransform;
+	bool bMeshBaseCaptured = false;
 	FRotator SmoothedSwing = FRotator::ZeroRotator;
 };

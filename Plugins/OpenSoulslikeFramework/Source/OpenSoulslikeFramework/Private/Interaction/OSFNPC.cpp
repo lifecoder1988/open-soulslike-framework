@@ -1,6 +1,9 @@
 // Copyright Open Soulslike Framework contributors. MIT License.
 
 #include "Interaction/OSFNPC.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Engine/SkeletalMesh.h"
+#include "Animation/AnimSequenceBase.h"
 #include "Characters/OSFPlayerCharacter.h"
 #include "Items/OSFInventoryComponent.h"
 #include "Items/OSFEquipmentComponent.h"
@@ -67,6 +70,32 @@ AOSFNPC::AOSFNPC()
 		HeadMesh->SetStaticMesh(SphereMesh.Object);
 	}
 	InteractionVolume->SetSphereRadius(220.f);
+
+	SkeletalBody = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SkeletalBody"));
+	SkeletalBody->SetupAttachment(Root);
+	SkeletalBody->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	SkeletalBody->SetVisibility(false);
+}
+
+void AOSFNPC::SetupSkeletalBody(USkeletalMesh* InMesh, float TargetHeight, float YawOffset, UAnimSequenceBase* IdleAnimation)
+{
+	if (!InMesh)
+	{
+		return;
+	}
+	SkeletalBody->SetSkeletalMeshAsset(InMesh);
+	const FBox Box = InMesh->GetImportedBounds().GetBox();
+	const float Scale = TargetHeight / FMath::Max(Box.GetSize().Z, 1.f);
+	SkeletalBody->SetRelativeScale3D(FVector(Scale));
+	SkeletalBody->SetRelativeLocationAndRotation(FVector(0.f, 0.f, -Box.Min.Z * Scale), FRotator(0.f, YawOffset, 0.f));
+	SkeletalBody->SetVisibility(true);
+	if (IdleAnimation)
+	{
+		SkeletalBody->PlayAnimation(IdleAnimation, true);
+	}
+	// Keep the basic-shape body as an invisible blocker.
+	Mesh->SetVisibility(false);
+	HeadMesh->SetVisibility(false);
 }
 
 const FOSFDialogEntry* AOSFNPC::GetCurrentDialog(const UOSFProgressComponent* Progress) const

@@ -31,16 +31,39 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD")
 	bool bShowControlsHint = true;
 
+	/** Text font. When null, a runtime Roboto font with a CJK fallback (DroidSansFallback) is built. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD")
+	TObjectPtr<UFont> TextFont;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD")
+	TObjectPtr<UFont> LargeTextFont;
+
+	/** Key hints shown for the first seconds of play. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD")
+	FText ControlsHint;
+
+	/** Label next to the currency counter. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD")
+	FText CurrencyLabel;
+
+	/** Draws the tracked quest objectives (UOSFQuestComponent) at the top right. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD")
+	bool bShowQuestTracker = true;
+
+	UFUNCTION(BlueprintPure, Category = "OSF|HUD")
+	UFont* GetHUDFont(bool bLarge = false);
+
 protected:
 	void DrawStats(AOSFPlayerCharacter* Player);
 	void DrawEquipment(AOSFPlayerCharacter* Player);
 	void DrawCompass(AOSFPlayerCharacter* Player);
 	void DrawEnemyBars(AOSFPlayerCharacter* Player);
-	void DrawBossBar(AOSFPlayerCharacter* Player);
+	virtual void DrawBossBar(AOSFPlayerCharacter* Player);
 	void DrawPrompt(AOSFPlayerCharacter* Player);
 	void DrawNotifications(AOSFPlayerController* PC);
 	void DrawMenu(AOSFPlayerController* PC);
 	void DrawControls();
+	void DrawQuests(AOSFPlayerCharacter* Player);
 
 	void DrawBar(float X, float Y, float Width, float Height, float Percent, const FLinearColor& Color, float Trail = -1.f);
 	void DrawTextAt(const FString& Text, float X, float Y, const FLinearColor& Color, float Scale = 1.f, bool bCenter = false, UFont* Font = nullptr);

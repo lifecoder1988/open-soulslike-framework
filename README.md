@@ -26,6 +26,8 @@ OSF is an independent implementation written from scratch: no code or assets fro
 - Weapon blade traces (socket based or procedural), damage types, attribute scaling (E–S grades), requirements and two-handing
 - Lock-on with target switching, line-of-sight and distance break
 - Status effects with buildup and decay (bleed, poison, scarlet rot, frostbite), resistances, timed buffs and debuffs
+- **Ranged weapons**: hitscan guns with ammo items, magazines, reload, ammo types (per-type damage vs. negation), pellets, spread and aim assist
+- **Perilous attacks** that a matching hit source (e.g. a gunshot) counters, breaking the attacker's stance
 
 **RPG**
 - Stats and attributes (Vigor, Mind, Endurance, Strength, Dexterity, Intelligence, Faith, Arcane), a level-up cost curve, stacked modifiers
@@ -38,6 +40,7 @@ OSF is an independent implementation written from scratch: no code or assets fro
 - Doors (key / progress / one-way), chests, item pickups, ladders, boss **fog gates**
 - **NPC dialogue driven by progress** (gameplay tags or name flags), vendors with limited stock, buy and sell
 - Tag-based progression, slot-based **save & load**, time of day, a compass with markers
+- **Quests** with kill / flag / item objectives and rewards, saved through the progression flags
 
 **AI**
 - Perception plus a self-contained state machine (idle, patrol, combat, return, leash) that needs no navmesh or behavior tree (both are optional)
@@ -47,8 +50,11 @@ OSF is an independent implementation written from scratch: no code or assets fro
 **Presentation and tooling**
 - Default canvas HUD and gamepad-navigable menus (rest, level up, inventory, equipment, crafting, storage, shop, dialogue, save/load). A UMG front-end can use the same controller API.
 - Works **with zero art**: without a skeletal mesh, characters render as procedural bodies with procedural swings, rolls, guard, stagger and death. Assign a mesh and montages and the anim notifies take over (`OSF Weapon Trace`, `OSF I-Frames`, `OSF Hyper Armor`, `OSF Input Buffer`, `OSF Parry Window`, `OSF Adjust Stat`).
+- **Imported characters without anim blueprints**: `UOSFClipAnimInstance` plays trimmed clips (idle / walk / run by speed, action clips),
+  `SetupSkeletalMesh` sizes and grounds glTF / Tripo rigs, unrigged scans can be bodies; NPCs can use skeletal bodies too.
+- **Runtime translations** of the framework UI from a JSON table (CJK glyphs supported by the default HUD font).
 - Debug console commands (`OSFStatus`, `OSFAction`, `OSFGoTo`, `OSFInteract`, `OSFGod`, `OSFSave`…) make every system scriptable
-- 10 automation tests, plus an MCP-driven end-to-end walkthrough
+- 13 automation tests, plus an MCP-driven end-to-end walkthrough
 
 ## Requirements
 
@@ -112,6 +118,10 @@ MIT, see [LICENSE](LICENSE). Unreal Engine is a trademark of Epic Games; use of 
 - **RPG**：8 项属性、升级、背包、仓库、原素瓶（休息时补满）、消耗品、钥匙、制作配方、装备（左右手各 3 把武器、四件护甲、护符、5 个快捷道具）、负重
 - **世界**：赐福点/篝火（休息、升级、补瓶、刷新敌人、存档）、门（钥匙/进度/单向）、宝箱、拾取物、梯子、Boss 雾门、死亡掉落的血迹（可回收）
 - **NPC**：按进度变化的对话、可限量的商店（买/卖）
+- **枪械与危招**：命中扫描枪械、弹药物品与弹匣、换弹/切换弹种、弹丸/散布/辅助瞄准；危招（Perilous）可被指定来源（如子弹）识破打断
+- **任务**：击杀 / 标记 / 物品目标与奖励，状态存进进度系统随存档保存
+- **导入角色免动画蓝图**：`UOSFClipAnimInstance` 直接播放裁剪片段（待机/走/跑按速度混合 + 动作片段），适配 glTF / Tripo 骨架；未绑骨模型可作静态身体
+- **运行时翻译**：用 JSON 表翻译框架界面文字，HUD 字体自带中日韩字形回退
 - **进度/存档**：基于 Gameplay Tag 的进度系统、多槽位存档读档、昼夜系统、指南针标记
 - **AI**：感知加内置状态机（不依赖 NavMesh 或行为树），按距离/冷却/阶段加权选招、连段、格挡与闪避反应、多阶段 Boss
 - **界面**：默认 Canvas HUD 和可用手柄操作的菜单，菜单逻辑与渲染分离，便于替换成 UMG

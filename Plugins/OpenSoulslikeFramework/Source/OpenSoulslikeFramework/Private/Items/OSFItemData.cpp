@@ -123,3 +123,12 @@ UOSFTalismanData::UOSFTalismanData()
 	MaxStack = 1;
 	Weight = 0.5f;
 }
+
+UOSFAmmoData::UOSFAmmoData()
+{
+	Category = EOSFItemCategory::Ammo;
+	MaxStack = 999;
+	SellPrice = 2;
+	Damage.Add(OSFTags::Damage_Physical, 40.f);
+	SourceTags.AddTag(OSFTags::Source_Projectile);
+}

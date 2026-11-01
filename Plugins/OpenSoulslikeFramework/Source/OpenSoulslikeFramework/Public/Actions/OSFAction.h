@@ -102,6 +102,17 @@ public:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Action")
 	FOSFActionTiming Timing;
 
+	/**
+	 * Clip played when the character uses UOSFClipAnimInstance and no montage plays. The procedural timeline is
+	 * stretched to the clip duration, so windows keep their proportions and the action ends with the clip.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Action")
+	FOSFAnimClip Clip;
+
+	/** Clip mode: retime the clip to the action's Timing instead of stretching the Timing to the clip (short actions such as a parry). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Action")
+	bool bFitClipToTiming = false;
+
 	// --- Lifecycle (called by the action component) ---
 
 	void Initialize(UOSFActionComponent* InComponent);
@@ -147,12 +158,19 @@ public:
 	/** Whether the procedural timeline drives the windows (no montage playing). */
 	bool IsProcedural() const { return !bMontageMode; }
 
+	/** A clip (UOSFClipAnimInstance) is playing for this action. */
+	bool IsClipMode() const { return bClipMode; }
+
+	/** Timing actually used by the timeline (GetTiming, stretched to the clip in clip mode). */
+	const FOSFActionTiming& GetEffectiveTiming() const { return bClipMode ? ClipTiming : GetTiming(); }
+
 protected:
 	/** Override to pick a montage at activation (defaults to Montage). */
 	virtual UAnimMontage* GetMontageToPlay() const { return Montage; }
 	virtual FName GetMontageSection() const { return NAME_None; }
 	virtual float GetMontagePlayRate() const { return 1.f; }
 	virtual const FOSFActionTiming& GetTiming() const { return Timing; }
+	virtual const FOSFAnimClip* GetClipToPlay() const { return Clip.IsValid() ? &Clip : nullptr; }
 	virtual float GetStaminaCost() const { return StaminaCost; }
 	virtual float GetFPCost() const { return FPCost; }
 
@@ -190,7 +208,9 @@ protected:
 	EOSFActionPhase Phase = EOSFActionPhase::None;
 	bool bRunning = false;
 	bool bMontageMode = false;
+	bool bClipMode = false;
 	bool bEnding = false;
+	FOSFActionTiming ClipTiming;
 
 private:
 	void UpdateProceduralTimeline();

@@ -31,6 +31,22 @@ AOSFEnemyCharacter   + UOSFAICombatComponent, UOSFBossComponent, AOSFAIControlle
 - Built-ins: light, heavy, weapon skill and AI ability attacks, dodge (roll / backstep), guard, parry, use item, execute.
 - Custom actions: subclass `UOSFAction` (C++ or Blueprint), add it to `DefaultActions`, or set it as a weapon's `SkillActionClass`.
 
+## Ranged weapons
+
+Any `UOSFWeaponData` can carry a `FOSFRangedStats` profile next to its melee moveset. Ammo is a regular inventory item
+(`UOSFAmmoData`: damage per type, poise, status, pellets, source tags); loaded rounds live in a per-weapon magazine on
+the equipment component (`GetMagazine`, `Reload`, `CycleAmmo`, `FillMagazine`). `UOSFAction_Shoot` traces from the
+shooter's chest towards the lock-on / AI target or the view (aim-assist cone), ignores trigger volumes, and resolves hits
+through the combat component; an empty magazine redirects to `UOSFAction_Reload`. `OnShotFired` reports every shot.
+
+## Clip animation (no anim blueprint)
+
+`UOSFClipAnimInstance` evaluates `FOSFAnimClip`s (sequence + start / end / rate / loop) in a custom anim instance proxy:
+idle / walk / run blended by ground speed, plus one action clip on top. Actions play `Clip` (or the attack's `Clip`) and
+stretch their procedural timing to the clip (or retime the clip with `bFitClipToTiming`), so windows stay data driven.
+The root bone is locked to the reference pose: clips are in place and imported root tracks may carry axis conversions.
+`AOSFCharacterBase::SetupSkeletalMesh` scales an imported mesh to a height, grounds it and applies a yaw offset.
+
 ## Hit resolution (`UOSFCombatComponent::ReceiveDamage`)
 
 1. Ignored if dead, invincible, being executed, or on the same team.
@@ -53,6 +69,18 @@ AOSFEnemyCharacter   + UOSFAICombatComponent, UOSFBossComponent, AOSFAIControlle
 | `UOSFCraftingRecipe`, `UOSFDialogData`, `UOSFVendorData` | crafting, progress-driven dialogue, shops |
 
 Items are saved by `ItemId`. `UOSFItemRegistry` resolves ids for data assets (through the asset registry) and for items created at runtime.
+
+## Perilous attacks
+
+An attack with `bPerilous` gives its owner `OSF.State.Perilous` during the windup. A hit whose `SourceTags` match the
+attack's `CounterTags` cancels it, deals `CounterPoiseDamage` (ignoring hyper armor) and staggers or breaks the stance
+(`FOSFHitInfo::bCountered`). `NegatedFraction` tells the attacker how much the target's negation ate (ricochets).
+
+## Quests
+
+`UOSFQuestData` lists objectives (kill by `AOSFEnemyCharacter::KillKey`, progress flag, progress tag, item count) and
+rewards. `UOSFQuestComponent` (on the player) stores everything in the progress component: `Quest.<Id>.Active/Done`
+flags, `Kill.<Key>` counters and per-quest baselines, so quests are saved and loaded with the rest of the progression.
 
 ## Progression and saving
 
