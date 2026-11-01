@@ -8,6 +8,8 @@
 #include "OSFTypes.h"
 #include "OSFNPC.generated.h"
 
+class USoundBase;
+
 class UOSFItemData;
 class UOSFProgressComponent;
 class AOSFPlayerCharacter;
@@ -36,6 +38,10 @@ struct OPENSOULSLIKEFRAMEWORK_API FOSFDialogEntry
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialog", meta = (MultiLine = true))
 	TArray<FText> Lines;
+
+	/** Voice for each line (same index as Lines; missing entries stay silent). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialog")
+	TArray<TObjectPtr<USoundBase>> LineVoices;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Dialog")
 	FGameplayTagContainer GrantProgress;

@@ -3,6 +3,7 @@
 #include "Items/OSFWeaponActor.h"
 #include "Items/OSFItemData.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Kismet/GameplayStatics.h"
 
 AOSFWeaponActor::AOSFWeaponActor()
@@ -18,6 +19,12 @@ AOSFWeaponActor::AOSFWeaponActor()
 	Mesh->SetGenerateOverlapEvents(false);
 	Mesh->SetCanEverAffectNavigation(false);
 	Mesh->CastShadow = true;
+	SkeletalMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("SkeletalMesh"));
+	SkeletalMesh->SetupAttachment(Root);
+	SkeletalMesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	SkeletalMesh->SetGenerateOverlapEvents(false);
+	SkeletalMesh->SetCanEverAffectNavigation(false);
+	SkeletalMesh->SetVisibility(false);
 }
 
 void AOSFWeaponActor::Tick(float DeltaSeconds)
@@ -32,7 +39,14 @@ void AOSFWeaponActor::Tick(float DeltaSeconds)
 void AOSFWeaponActor::InitializeWeapon(UOSFWeaponData* InData)
 {
 	WeaponData = InData;
-	if (InData && InData->StaticMesh)
+	if (InData && InData->WeaponSkeletalMesh)
+	{
+		SkeletalMesh->SetSkeletalMesh(InData->WeaponSkeletalMesh);
+		SkeletalMesh->SetRelativeTransform(InData->MeshTransform);
+		SkeletalMesh->SetVisibility(true);
+		Mesh->SetStaticMesh(nullptr);
+	}
+	else if (InData && InData->StaticMesh)
 	{
 		Mesh->SetStaticMesh(InData->StaticMesh);
 		Mesh->SetRelativeTransform(InData->MeshTransform);

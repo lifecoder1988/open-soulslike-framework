@@ -9,6 +9,7 @@
 #include "Items/OSFWeaponActor.h"
 #include "Stats/OSFBuffComponent.h"
 #include "OSFGameplayTags.h"
+#include "Animation/OSFClipAnimInstance.h"
 #include "OpenSoulslikeFramework.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/PointLightComponent.h"
@@ -19,6 +20,7 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "Combat/OSFCombatLibrary.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -77,9 +79,19 @@ void UOSFAction_Shoot::OnPreStart()
 	}
 }
 
-const FOSFAnimClip* UOSFAction_Shoot::GetClipToPlay() const
+void UOSFAction_Shoot::OnStarted()
 {
-	return (Weapon && Weapon->Ranged.FireClip.IsValid()) ? &Weapon->Ranged.FireClip : Super::GetClipToPlay();
+	// One recoil clip per burst: restart it only once the previous one is mostly done, so full-auto doesn't jitter.
+	const ACharacter* Character = GetCharacter();
+	UOSFClipAnimInstance* ClipAnim = Character && Character->GetMesh() ? Cast<UOSFClipAnimInstance>(Character->GetMesh()->GetAnimInstance()) : nullptr;
+	if (ClipAnim && Weapon && Weapon->Ranged.FireClip.IsValid())
+	{
+		const FOSFAnimClip& Fire = Weapon->Ranged.FireClip;
+		if (!ClipAnim->IsPlayingSequence(Fire.Sequence) || ClipAnim->GetActionElapsed() > Fire.GetDuration() * 0.6f)
+		{
+			ClipAnim->PlayActionClip(Fire);
+		}
+	}
 }
 
 void UOSFAction_Shoot::OnWindowChanged(EOSFActionWindow Window, bool bOpen)
@@ -210,6 +222,8 @@ int32 UOSFAction_Shoot::FireWeapon(UOSFWeaponData* InWeapon)
 	Spec.PoiseDamage = Ammo->PoiseDamage;
 	Spec.StatusBuildup = Ammo->StatusBuildup;
 	Spec.SourceTags = Ammo->SourceTags;
+	Spec.HitFeel = Ammo->HitFeel;
+	Spec.ImpactEffect = Ammo->ImpactEffect;
 	Spec.bCanBeParried = false;
 	Spec.bCanBeGuarded = true;
 	Spec.GuardStaminaDamageScale = 0.35f;
@@ -291,6 +305,10 @@ int32 UOSFAction_Shoot::FireWeapon(UOSFWeaponData* InWeapon)
 	{
 		UGameplayStatics::PlaySoundAtLocation(this, InWeapon->Ranged.FireSound, Muzzle);
 	}
+	if (InWeapon->Ranged.MuzzleEffect.IsSet())
+	{
+		UOSFCombatLibrary::SpawnEffect(this, InWeapon->Ranged.MuzzleEffect, Muzzle, AimDirection.Rotation());
+	}
 	Equipment->OnShotFired.Broadcast(Equipment, InWeapon, Hits);
 	return Hits;
 }
@@ -311,6 +329,7 @@ UOSFAction_Reload::UOSFAction_Reload()
 	CurrentTiming.Active = 0.05f;
 	CurrentTiming.Recovery = 0.2f;
 	CurrentTiming.CancelWindowStart = 0.f;
+	bFitClipToTiming = true;
 }
 
 bool UOSFAction_Reload::CanActivate_Implementation() const
@@ -410,9 +429,9 @@ AOSFTracer* AOSFTracer::Spawn(UWorld* World, const FVector& Start, const FVector
 	}
 	Tracer->BeamScale = FVector(0.025f, 0.025f, Length / 100.f);
 	Tracer->Beam->SetRelativeScale3D(Tracer->BeamScale);
-	if (UMaterialInstanceDynamic* Material = Tracer->Beam->CreateDynamicMaterialInstance(0))
+	if (UMaterialInstanceDynamic* BeamMaterial = Tracer->Beam->CreateDynamicMaterialInstance(0))
 	{
-		Material->SetVectorParameterValue(TEXT("Color"), Color * 4.f);
+		BeamMaterial->SetVectorParameterValue(TEXT("Color"), Color * 4.f);
 	}
 	Tracer->Spark->SetWorldLocation(End);
 	Tracer->Spark->SetWorldScale3D(FVector(bImpact ? 0.22f : 0.f));
@@ -425,12 +444,50 @@ AOSFTracer* AOSFTracer::Spawn(UWorld* World, const FVector& Start, const FVector
 	return Tracer;
 }
 
+AOSFTracer* AOSFTracer::SpawnSpark(UWorld* World, const FVector& Location, const FLinearColor& Color, float Scale, UMaterialInterface* Material)
+{
+	if (!World || Scale <= 0.f)
+	{
+		return nullptr;
+	}
+	FActorSpawnParameters Params;
+	Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	AOSFTracer* Spark = World->SpawnActor<AOSFTracer>(AOSFTracer::StaticClass(), FTransform(Location), Params);
+	if (!Spark)
+	{
+		return nullptr;
+	}
+	Spark->Beam->SetVisibility(false);
+	Spark->BeamScale = FVector::ZeroVector;
+	Spark->MaxLife = 0.12f;
+	Spark->SparkScale = 0.07f * Scale;	// peaks at ~2x: a 15-25 cm flash, not a ball filling a close camera
+	if (Material)
+	{
+		Spark->Spark->SetMaterial(0, Material);
+	}
+	Spark->Spark->SetWorldLocation(Location);
+	Spark->Spark->SetWorldScale3D(FVector(Spark->SparkScale));
+	if (UMaterialInstanceDynamic* SparkMaterial = Spark->Spark->CreateDynamicMaterialInstance(0))
+	{
+		SparkMaterial->SetVectorParameterValue(TEXT("Color"), Color * 6.f);
+	}
+	Spark->Flash->SetWorldLocation(Location);
+	Spark->Flash->SetLightColor(Color);
+	Spark->Flash->SetAttenuationRadius(300.f * Scale);
+	return Spark;
+}
+
 void AOSFTracer::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 	Life += DeltaSeconds;
 	const float Alpha = FMath::Clamp(1.f - Life / MaxLife, 0.f, 1.f);
 	Beam->SetRelativeScale3D(FVector(BeamScale.X * Alpha, BeamScale.Y * Alpha, BeamScale.Z));
+	if (SparkScale > 0.f)
+	{
+		// Burst: grows quickly, then shrinks away.
+		Spark->SetWorldScale3D(FVector(SparkScale * (0.6f + 1.4f * FMath::Sin(PI * FMath::Clamp(Life / MaxLife, 0.f, 1.f)))));
+	}
 	Flash->SetIntensity(9000.f * Alpha);
 	if (Life >= MaxLife * 1.5f)
 	{

@@ -7,6 +7,9 @@
 #include "GameFramework/Actor.h"
 #include "OSFTypes.generated.h"
 
+class USoundBase;
+class UFXSystemAsset;
+
 class UAnimMontage;
 class UAnimSequence;
 class UOSFItemData;
@@ -125,6 +128,70 @@ struct OPENSOULSLIKEFRAMEWORK_API FOSFActionTiming
 	float GetTotal() const { return Windup + Active + Recovery; }
 };
 
+/** How the hit frame of an action clip is found (clip mode). */
+UENUM(BlueprintType)
+enum class EOSFClipImpact : uint8
+{
+	Reach,	// hand / foot / blade furthest forward relative to the hips (kick clips use the feet)
+	Energy,	// peak of overall joint motion (roars, summons, casts)
+	Fixed	// FOSFAnimClip::ImpactTime
+};
+
+/** A visual effect: Niagara or Cascade system, optional tint (Niagara user parameter "Color"), scale and offset. */
+USTRUCT(BlueprintType)
+struct OPENSOULSLIKEFRAMEWORK_API FOSFEffect
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
+	TObjectPtr<UFXSystemAsset> System = nullptr;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
+	FLinearColor Color = FLinearColor::White;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
+	float Scale = 1.f;
+
+	/** Offset from the spawn point (attacker: in its local space). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
+	FVector Offset = FVector::ZeroVector;
+
+	/** Attach to the attacker instead of staying in the world. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
+	bool bAttach = false;
+
+	bool IsSet() const { return System != nullptr; }
+};
+
+/**
+ * Hit feedback ("hit feel") of an attack: hit stop, knockback, camera shake and impact spark size.
+ * Defaults are a light hit; heavy attacks and finishers use larger values.
+ */
+USTRUCT(BlueprintType)
+struct OPENSOULSLIKEFRAMEWORK_API FOSFHitFeel
+{
+	GENERATED_BODY()
+
+	/** Both characters freeze this long (seconds) on a landed hit. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF", meta = (ClampMin = 0))
+	float HitStop = 0.065f;
+
+	/** Victim pushed back along the hit direction (cm). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF", meta = (ClampMin = 0))
+	float Knockback = 12.f;
+
+	/** Camera shake strength (cm of jitter) when the player is involved. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF", meta = (ClampMin = 0))
+	float CameraShake = 3.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF", meta = (ClampMin = 0))
+	float CameraShakeDuration = 0.16f;
+
+	/** Impact spark scale (0 = none). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF", meta = (ClampMin = 0))
+	float Spark = 1.f;
+};
+
 /**
  * A trimmed animation sequence played by UOSFClipAnimInstance (no anim blueprint or montage needed).
  * Mirrors the clip binding of asset pipelines: sequence, [Start, End] in seconds, play rate and looping.
@@ -157,6 +224,18 @@ struct OPENSOULSLIKEFRAMEWORK_API FOSFAnimClip
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF", meta = (ClampMin = 0))
 	float BlendOut = 0.2f;
 
+	/** Only the upper body plays the clip (from UOSFClipAnimInstance::UpperBodyRootBone); legs keep locomotion. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
+	bool bUpperBody = false;
+
+	/** Hit frame rule for actions in clip mode. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
+	EOSFClipImpact ImpactRule = EOSFClipImpact::Reach;
+
+	/** Sequence time of the hit for ImpactRule = Fixed. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
+	float ImpactTime = -1.f;
+
 	bool IsValid() const { return Sequence != nullptr; }
 
 	/** Clip end, resolved against the sequence length. */
@@ -183,11 +262,26 @@ struct OPENSOULSLIKEFRAMEWORK_API FOSFAttackDefinition
 	float MontagePlayRate = 1.f;
 
 	/**
-	 * Optional clip for characters driven by UOSFClipAnimInstance (no montage). The procedural Timing still
-	 * drives the windows; it is stretched to the clip duration so the hit lands where Timing puts it.
+	 * Optional clip for characters driven by UOSFClipAnimInstance (no montage). The clip plays at its own pace;
+	 * the damage window opens on its hit frame (Clip.ImpactRule) and lasts Timing.Active (capped).
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
 	FOSFAnimClip Clip;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
+	FOSFHitFeel HitFeel;
+
+	/** Played when the attack starts (roar, battle cry, spell chant), in addition to the weapon's swing sound. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
+	TObjectPtr<USoundBase> StartSound;
+
+	/** Visual effect on the attacker when the attack starts (aura, shockwave, ritual circle). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
+	FOSFEffect StartEffect;
+
+	/** Visual effect where this attack's hits land (blood mist, energy burst). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
+	FOSFEffect ImpactEffect;
 
 	/** Used when Montage is null. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
@@ -287,6 +381,12 @@ struct OPENSOULSLIKEFRAMEWORK_API FOSFDamageSpec
 	/** Describes the source of the hit (OSF.Source.Melee / Projectile / Explosion...), used by counters and reactions. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
 	FGameplayTagContainer SourceTags;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
+	FOSFHitFeel HitFeel;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
+	FOSFEffect ImpactEffect;
 
 	float GetTotalDamage() const
 	{

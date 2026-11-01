@@ -131,4 +131,9 @@ UOSFAmmoData::UOSFAmmoData()
 	SellPrice = 2;
 	Damage.Add(OSFTags::Damage_Physical, 40.f);
 	SourceTags.AddTag(OSFTags::Source_Projectile);
+	HitFeel.HitStop = 0.f;
+	HitFeel.Knockback = 4.f;
+	HitFeel.CameraShake = 0.8f;
+	HitFeel.CameraShakeDuration = 0.08f;
+	HitFeel.Spark = 0.6f;
 }

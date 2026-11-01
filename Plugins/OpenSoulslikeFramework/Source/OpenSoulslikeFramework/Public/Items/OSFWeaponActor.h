@@ -8,6 +8,7 @@
 #include "OSFWeaponActor.generated.h"
 
 class UStaticMeshComponent;
+class USkeletalMeshComponent;
 class UOSFWeaponData;
 
 /** Visual representation of an equipped weapon. Provides the blade points used by the weapon trace. */
@@ -24,6 +25,10 @@ public:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
 	TObjectPtr<UStaticMeshComponent> Mesh;
+
+	/** Used when the weapon data has a WeaponSkeletalMesh. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Weapon")
+	TObjectPtr<USkeletalMeshComponent> SkeletalMesh;
 
 	UPROPERTY(BlueprintReadOnly, Category = "Weapon")
 	TObjectPtr<UOSFWeaponData> WeaponData;

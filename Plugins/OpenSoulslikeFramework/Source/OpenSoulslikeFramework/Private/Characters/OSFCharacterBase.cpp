@@ -1,6 +1,7 @@
 // Copyright Open Soulslike Framework contributors. MIT License.
 
 #include "Characters/OSFCharacterBase.h"
+#include "Kismet/GameplayStatics.h"
 #include "Stats/OSFStatComponent.h"
 #include "Stats/OSFStatusEffectComponent.h"
 #include "Stats/OSFBuffComponent.h"
@@ -13,6 +14,7 @@
 #include "Interaction/OSFLadder.h"
 #include "Animation/OSFClipAnimInstance.h"
 #include "Engine/SkeletalMesh.h"
+#include "Actions/OSFRangedActions.h"
 #include "OSFGameplayTags.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
@@ -37,6 +39,8 @@ AOSFCharacterBase::AOSFCharacterBase(const FObjectInitializer& ObjectInitializer
 	WeaponTrace = CreateDefaultSubobject<UOSFWeaponTraceComponent>(TEXT("WeaponTrace"));
 
 	GetCapsuleComponent()->InitCapsuleSize(40.f, 92.f);
+	// Other bodies push the follow camera in instead of letting it end up inside them (the spring arm ignores its own pawn).
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Camera, ECR_Block);
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationRoll = false;
@@ -221,6 +225,7 @@ void AOSFCharacterBase::SetProceduralSwing(float Yaw, float Pitch, float Roll)
 void AOSFCharacterBase::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	UpdateHitFeel(DeltaSeconds);
 
 	if (IsSprinting())
 	{
@@ -245,6 +250,75 @@ void AOSFCharacterBase::Tick(float DeltaSeconds)
 	else if (GetClipAnimInstance())
 	{
 		UpdateSkeletalPose(DeltaSeconds);
+	}
+}
+
+void AOSFCharacterBase::ApplyHitStop(float Seconds)
+{
+	if (Seconds <= 0.f || !GetWorld())
+	{
+		return;
+	}
+	HitStopUntil = FMath::Max(HitStopUntil, GetWorld()->GetRealTimeSeconds() + Seconds);
+	CustomTimeDilation = 0.02f;
+}
+
+void AOSFCharacterBase::PlayHitImpact(const FVector& Location, float Scale, bool bGuarded)
+{
+	if (USoundBase* Sound = bGuarded && GuardSound ? GuardSound.Get() : HitSound.Get())
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, Sound, Location, FMath::Clamp(0.6f + Scale * 0.3f, 0.6f, 1.3f), FMath::FRandRange(0.94f, 1.06f));
+	}
+	const double Now = GetWorld()->GetTimeSeconds();
+	if (!bGuarded && HurtVoice && !IsDead() && Now - LastHurtVoiceTime > HurtVoiceCooldown)
+	{
+		LastHurtVoiceTime = Now;
+		UGameplayStatics::PlaySoundAtLocation(this, HurtVoice, GetActorLocation(), 1.f, FMath::FRandRange(0.95f, 1.05f));
+	}
+	if (Scale > 0.f)
+	{
+		AOSFTracer::SpawnSpark(GetWorld(), Location, bGuarded ? GuardSparkColor : HitSparkColor, Scale, HitSparkMaterial);
+	}
+	if (bGuarded)
+	{
+		return;
+	}
+	OverlayFlash = 1.f;
+	UMeshComponent* Body = bProceduralVisuals ? static_cast<UMeshComponent*>(BodyMesh) : static_cast<UMeshComponent*>(GetMesh());
+	if (HitFlashMaterial && Body)
+	{
+		if (!FlashMaterial)
+		{
+			FlashMaterial = UMaterialInstanceDynamic::Create(HitFlashMaterial, this);
+		}
+		FlashMaterial->SetVectorParameterValue(TEXT("Color"), HitFlashColor);
+		FlashMaterial->SetScalarParameterValue(TEXT("Intensity"), 1.f);
+		Body->SetOverlayMaterial(FlashMaterial);
+	}
+}
+
+void AOSFCharacterBase::UpdateHitFeel(float DeltaSeconds)
+{
+	if (HitStopUntil > 0.0 && GetWorld()->GetRealTimeSeconds() >= HitStopUntil)
+	{
+		HitStopUntil = 0.0;
+		CustomTimeDilation = 1.f;
+	}
+	if (OverlayFlash > 0.f)
+	{
+		// Real time, so the flash also fades during the hit stop.
+		OverlayFlash = FMath::Max(0.f, OverlayFlash - GetWorld()->GetDeltaSeconds() / 0.18f);
+		if (FlashMaterial)
+		{
+			FlashMaterial->SetScalarParameterValue(TEXT("Intensity"), OverlayFlash * OverlayFlash);
+		}
+		if (OverlayFlash <= 0.f)
+		{
+			if (UMeshComponent* Body = bProceduralVisuals ? static_cast<UMeshComponent*>(BodyMesh) : static_cast<UMeshComponent*>(GetMesh()))
+			{
+				Body->SetOverlayMaterial(nullptr);
+			}
+		}
 	}
 }
 
@@ -468,6 +542,10 @@ void AOSFCharacterBase::HandleDeath(UOSFCombatComponent* InCombat, AActor* Kille
 	if (CurrentLadder)
 	{
 		ExitLadder(false);
+	}
+	if (DeathSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, DeathSound, GetActorLocation());
 	}
 	K2_OnDeath(Killer);
 }

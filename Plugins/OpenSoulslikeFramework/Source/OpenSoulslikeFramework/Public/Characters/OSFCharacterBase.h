@@ -18,6 +18,8 @@ class UOSFEquipmentComponent;
 class UOSFWeaponTraceComponent;
 class UStaticMeshComponent;
 class UMaterialInstanceDynamic;
+class UMaterialInterface;
+class USoundBase;
 class UOSFClipAnimInstance;
 class AOSFLadder;
 
@@ -132,6 +134,55 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "OSF|Animation")
 	void SetupSkeletalMesh(USkeletalMesh* NewMesh, float TargetHeight, float YawOffset = -90.f);
 
+	// --- Hit feel ---
+
+	/** Overlay material flashed on the visible body when hit (its "Color" / "Intensity" parameters are driven). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HitFeel")
+	TObjectPtr<UMaterialInterface> HitFlashMaterial;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HitFeel")
+	FLinearColor HitFlashColor = FLinearColor(1.f, 0.28f, 0.18f);
+
+	/** Spark material (an emissive one); null = engine basic shape material. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HitFeel")
+	TObjectPtr<UMaterialInterface> HitSparkMaterial;
+
+	/** Spark colour of this body (blood for flesh, gold for bronze...). Guarded hits use GuardSparkColor. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HitFeel")
+	FLinearColor HitSparkColor = FLinearColor(1.f, 0.85f, 0.6f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HitFeel")
+	FLinearColor GuardSparkColor = FLinearColor(0.9f, 0.95f, 1.f);
+
+	/** Played where this body is struck (flesh, bronze...); GuardSound when the hit is guarded. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Sound")
+	TObjectPtr<USoundBase> HitSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Sound")
+	TObjectPtr<USoundBase> GuardSound;
+
+	/** Pain voice on unguarded hits (at most every HurtVoiceCooldown seconds). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Sound")
+	TObjectPtr<USoundBase> HurtVoice;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Sound")
+	float HurtVoiceCooldown = 1.2f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Sound")
+	TObjectPtr<USoundBase> DeathSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Sound")
+	TObjectPtr<USoundBase> DodgeSound;
+
+	/** Freezes this character's animation and movement for Seconds (hit stop). */
+	UFUNCTION(BlueprintCallable, Category = "OSF|HitFeel")
+	void ApplyHitStop(float Seconds);
+	double LastHurtVoiceTime = -100.0;
+
+	/** Hit flash on the body + an impact spark at Location (Scale 0 = no spark). */
+	UFUNCTION(BlueprintCallable, Category = "OSF|HitFeel")
+	virtual void PlayHitImpact(const FVector& Location, float Scale, bool bGuarded);
+
 	/** Attack swing offset applied to the right hand pivot (procedural mode). */
 	void SetProceduralSwing(float Yaw, float Pitch, float Roll = 0.f);
 
@@ -239,5 +290,12 @@ protected:
 	FRotator SwingOffset = FRotator::ZeroRotator;
 	FTransform MeshBaseTransform;
 	bool bMeshBaseCaptured = false;
+	double HitStopUntil = 0.0;
+	float OverlayFlash = 0.f;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInstanceDynamic> FlashMaterial;
+
+	void UpdateHitFeel(float DeltaSeconds);
 	FRotator SmoothedSwing = FRotator::ZeroRotator;
 };

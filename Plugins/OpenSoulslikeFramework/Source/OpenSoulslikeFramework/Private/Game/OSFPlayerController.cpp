@@ -24,6 +24,9 @@
 #include "OSFGameplayTags.h"
 #include "OpenSoulslikeFramework.h"
 #include "EngineUtils.h"
+#include "InputKeyEventArgs.h"
+#include "Kismet/GameplayStatics.h"
+#include "Components/AudioComponent.h"
 #include "Engine/World.h"
 
 #define LOCTEXT_NAMESPACE "OSFUI"
@@ -101,6 +104,25 @@ void AOSFPlayerController::BeginPlay()
 	Super::BeginPlay();
 	SetInputMode(FInputModeGameOnly());
 	bShowMouseCursor = false;
+	if (bOpenTitleOnStart && IsLocalController())
+	{
+		OpenMenu(EOSFMenu::Title);
+	}
+}
+
+bool AOSFPlayerController::InputKey(const FInputKeyEventArgs& Params)
+{
+	// Switch glyphs on a press, a stick past its dead zone or a real mouse move; idle stick / mouse noise is ignored.
+	const bool bGamepad = Params.Key.IsGamepadKey();
+	const bool bMeaningful = Params.Key.IsAnalog()
+		? FMath::Abs(Params.AmountDepressed) > (bGamepad ? 0.35f : 4.f) || Params.AmountDepressed2D.Size() > (bGamepad ? 0.35f : 4.f)
+		: Params.Event == IE_Pressed;
+	if (bMeaningful && bGamepad != bUsingGamepad)
+	{
+		bUsingGamepad = bGamepad;
+		OnInputDeviceChanged.Broadcast(bUsingGamepad);
+	}
+	return Super::InputKey(Params);
 }
 
 void AOSFPlayerController::Tick(float DeltaSeconds)
@@ -155,6 +177,11 @@ void AOSFPlayerController::OnMenusChanged()
 			Hero->ActionComponent->ClearStateTag(OSFTags::State_InMenu);
 			Hero->StopResting();
 		}
+	}
+	const bool bPause = MenuStack.ContainsByPredicate([this](const FOSFMenuFrame& Frame) { return Frame.Menu == EOSFMenu::Title || PausingMenus.Contains(Frame.Menu); });
+	if (IsPaused() != bPause)
+	{
+		SetPause(bPause);
 	}
 	OnMenuChanged.Broadcast(GetCurrentMenu());
 }
@@ -234,6 +261,7 @@ void AOSFPlayerController::OpenDialogue(AOSFNPC* NPC)
 	}
 	CloseAllMenus();
 	OpenMenu(EOSFMenu::Dialogue);
+	PlayDialogueVoice();
 }
 
 int32 AOSFPlayerController::GetEntryCount() const
@@ -252,6 +280,7 @@ void AOSFPlayerController::MenuNavigate(int32 DeltaX, int32 DeltaY)
 	if (DeltaY != 0 && Count > 0)
 	{
 		Frame.Selection = (Frame.Selection + DeltaY + Count) % Count;
+		PlayMenuSound(MenuMoveSound);
 	}
 	if (DeltaX == 0)
 	{
@@ -305,11 +334,39 @@ void AOSFPlayerController::MenuNavigate(int32 DeltaX, int32 DeltaY)
 
 void AOSFPlayerController::MenuBack()
 {
-	if (MenuStack.Num() == 0)
+	// The title has nowhere to go back to.
+	if (MenuStack.Num() == 0 || MenuStack.Last().Menu == EOSFMenu::Title)
 	{
 		return;
 	}
+	PlayMenuSound(MenuBackSound);
 	CloseMenu();
+}
+
+void AOSFPlayerController::PlayMenuSound(USoundBase* Sound)
+{
+	// UI sound: still audible while a menu pauses the world (title, game menu).
+	if (UAudioComponent* Audio = Sound ? UGameplayStatics::CreateSound2D(this, Sound, 0.6f) : nullptr)
+	{
+		Audio->bIsUISound = true;
+		Audio->bAutoDestroy = true;
+		Audio->Play();
+	}
+}
+
+void AOSFPlayerController::PlayDialogueVoice()
+{
+	if (DialogueVoice)
+	{
+		DialogueVoice->Stop();
+		DialogueVoice = nullptr;
+	}
+	const AOSFNPC* NPC = DialogueNPC.Get();
+	const FOSFDialogEntry* Entry = (NPC && NPC->Dialog && NPC->Dialog->Entries.IsValidIndex(DialogueEntryIndex)) ? &NPC->Dialog->Entries[DialogueEntryIndex] : nullptr;
+	if (Entry && !bDialogueFinished && Entry->LineVoices.IsValidIndex(DialogueLine) && Entry->LineVoices[DialogueLine])
+	{
+		DialogueVoice = UGameplayStatics::SpawnSound2D(this, Entry->LineVoices[DialogueLine]);
+	}
 }
 
 void AOSFPlayerController::MenuConfirm()
@@ -324,6 +381,7 @@ void AOSFPlayerController::MenuConfirm()
 	{
 		return;
 	}
+	PlayMenuSound(MenuConfirmSound);
 	ConfirmEntry(Frame, Frame.Selection);
 }
 
@@ -443,6 +501,7 @@ FText AOSFPlayerController::GetMenuTitle() const
 	case EOSFMenu::Dialogue: return DialogueNPC.IsValid() ? DialogueNPC->NPCName : FText::GetEmpty();
 	case EOSFMenu::SaveSlots: return LOCTEXT("TitleSave", "SAVE GAME");
 	case EOSFMenu::LoadSlots: return LOCTEXT("TitleLoad", "LOAD GAME");
+	case EOSFMenu::Title: return LOCTEXT("TitleTitle", "OPEN SOULSLIKE");
 	default: return FText::GetEmpty();
 	}
 }
@@ -493,7 +552,25 @@ TArray<FOSFMenuEntry> AOSFPlayerController::GetMenuEntries() const
 		Add(LOCTEXT("SaveGame", "Save Game"));
 		Add(LOCTEXT("LoadGame", "Load Game"));
 		Add(LOCTEXT("Resume", "Resume"));
+		if (bOpenTitleOnStart)
+		{
+			Add(LOCTEXT("QuitToTitle", "Quit to Title"));
+		}
 		break;
+
+	case EOSFMenu::Title:
+	{
+		const UOSFSaveSubsystem* Save = UOSFSaveSubsystem::Get(this);
+		bool bAnySave = false;
+		for (int32 Slot = 0; Save && Slot < Save->NumSlots; ++Slot)
+		{
+			bAnySave |= Save->GetSlotSummary(Slot).bExists;
+		}
+		Add(LOCTEXT("NewGame", "New Game"));
+		Add(LOCTEXT("Continue", "Continue"), FText::GetEmpty(), bAnySave);
+		Add(LOCTEXT("Quit", "Quit"));
+		break;
+	}
 
 	case EOSFMenu::Rest:
 		Add(LOCTEXT("LevelUp", "Level Up"), FText::Format(LOCTEXT("LevelValue", "Lv {0}"), FText::AsNumber(Hero->Stats->GetLevel())));
@@ -739,7 +816,40 @@ void AOSFPlayerController::ConfirmEntry(FOSFMenuFrame& Frame, int32 Index)
 		case 2: OpenMenu(EOSFMenu::Crafting); break;
 		case 3: OpenMenu(EOSFMenu::SaveSlots); break;
 		case 4: OpenMenu(EOSFMenu::LoadSlots); break;
+		case 6: CloseAllMenus(); RestartLevel(); break;	// Quit to Title: the reloaded level opens the title again
 		default: CloseAllMenus(); break;
+		}
+		break;
+
+	case EOSFMenu::Title:
+		if (Index == 0)
+		{
+			CloseAllMenus();
+		}
+		else if (Index == 1)
+		{
+			// Continue: the most recent save.
+			UOSFSaveSubsystem* Save = UOSFSaveSubsystem::Get(this);
+			int32 Latest = INDEX_NONE;
+			FDateTime LatestTime;
+			for (int32 Slot = 0; Save && Slot < Save->NumSlots; ++Slot)
+			{
+				const FOSFSaveSummary Summary = Save->GetSlotSummary(Slot);
+				if (Summary.bExists && (Latest == INDEX_NONE || Summary.Timestamp > LatestTime))
+				{
+					Latest = Slot;
+					LatestTime = Summary.Timestamp;
+				}
+			}
+			CloseAllMenus();
+			if (Save && Latest != INDEX_NONE)
+			{
+				Save->LoadFromSlot(this, Latest);
+			}
+		}
+		else
+		{
+			ConsoleCommand(TEXT("quit"));
 		}
 		break;
 
@@ -936,6 +1046,7 @@ void AOSFPlayerController::ConfirmEntry(FOSFMenuFrame& Frame, int32 Index)
 				DialogueLine = Entry ? Entry->Lines.Num() - 1 : 0;
 				Frame.Selection = 0;
 			}
+			PlayDialogueVoice();
 			break;
 		}
 		const TArray<FOSFMenuEntry> Entries = GetMenuEntries();
@@ -1086,6 +1197,16 @@ void AOSFPlayerController::OSFCycleAmmo()
 	}
 	const FOSFMagazine Magazine = Hero ? Hero->Equipment->GetMagazine(Ranged) : FOSFMagazine();
 	UE_LOG(LogOSF, Log, TEXT("OSFCycleAmmo -> %s"), Magazine.Ammo ? *Magazine.Ammo->ItemId.ToString() : TEXT("none"));
+}
+
+void AOSFPlayerController::OSFCycleWeapon(int32 bRightHand)
+{
+	if (AOSFPlayerCharacter* Hero = GetOSFPlayer())
+	{
+		Hero->Equipment->CycleWeapon(bRightHand != 0);
+		const UOSFWeaponData* Weapon = Hero->Equipment->GetEquippedWeapon(bRightHand != 0);
+		UE_LOG(LogOSF, Log, TEXT("OSFCycleWeapon -> %s"), Weapon ? *Weapon->ItemId.ToString() : TEXT("unarmed"));
+	}
 }
 
 void AOSFPlayerController::OSFFace(const FString& Filter)

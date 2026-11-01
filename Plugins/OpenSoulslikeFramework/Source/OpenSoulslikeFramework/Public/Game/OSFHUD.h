@@ -4,6 +4,8 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
+#include "Characters/OSFPlayerCharacter.h"
+#include "Game/OSFPlayerController.h"
 #include "OSFHUD.generated.h"
 
 class AOSFPlayerCharacter;
@@ -14,6 +16,8 @@ class UFont;
  * Default canvas HUD: stat bars, equipment slots, currency, status buildup, buffs, compass, lock-on reticle,
  * enemy & boss health bars, prompts, notifications and every menu of AOSFPlayerController.
  * Everything it draws comes from public component / controller APIs, so it can be replaced by UMG.
+ * Each section can be switched off (bDraw*, ExternalMenus, ExternalNotifications) when another layer draws it,
+ * e.g. an embedded web HUD or UMG widgets; menu input stays with AOSFPlayerController either way.
  */
 UCLASS()
 class OPENSOULSLIKEFRAMEWORK_API AOSFHUD : public AHUD
@@ -38,9 +42,20 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD")
 	TObjectPtr<UFont> LargeTextFont;
 
+	/** TTF / OTF files for the runtime fonts when TextFont / LargeTextFont are unset (DroidSansFallback still covers missing glyphs). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD")
+	FString TextFontFile;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD")
+	FString LargeTextFontFile;
+
 	/** Key hints shown for the first seconds of play. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD")
 	FText ControlsHint;
+
+	/** ControlsHint while the player uses a gamepad (AOSFPlayerController::IsUsingGamepad). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD")
+	FText ControlsHintGamepad;
 
 	/** Label next to the currency counter. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD")
@@ -50,12 +65,55 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD")
 	bool bShowQuestTracker = true;
 
+	/** Health / FP / stamina bars (top left). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD|Sections")
+	bool bDrawStatBars = true;
+
+	/** Status buildup bars and active buffs under the stat bars. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD|Sections")
+	bool bDrawStatusEffects = true;
+
+	/** Weapon / ammo / quick item slots (bottom left). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD|Sections")
+	bool bDrawEquipment = true;
+
+	/** Currency counter (bottom right). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD|Sections")
+	bool bDrawCurrency = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD|Sections")
+	bool bDrawCompass = true;
+
+	/** Health bars over locked / recently hit enemies, with the riposte cue. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD|Sections")
+	bool bDrawEnemyBars = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD|Sections")
+	bool bDrawLockOnReticle = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD|Sections")
+	bool bDrawBossBar = true;
+
+	/** Interaction prompt ("[E] Rest"). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD|Sections")
+	bool bDrawPrompt = true;
+
+	/** Menus another layer draws (e.g. Dialogue, Rest); this HUD skips them entirely. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD|Sections")
+	TSet<EOSFMenu> ExternalMenus;
+
+	/** Notification types another layer draws. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HUD|Sections")
+	TSet<EOSFNotifyType> ExternalNotifications;
+
 	UFUNCTION(BlueprintPure, Category = "OSF|HUD")
 	UFont* GetHUDFont(bool bLarge = false);
 
 protected:
 	void DrawStats(AOSFPlayerCharacter* Player);
 	void DrawEquipment(AOSFPlayerCharacter* Player);
+	void DrawCurrency(AOSFPlayerCharacter* Player);
+	void DrawLockOnReticle(AOSFPlayerCharacter* Player);
 	void DrawCompass(AOSFPlayerCharacter* Player);
 	void DrawEnemyBars(AOSFPlayerCharacter* Player);
 	virtual void DrawBossBar(AOSFPlayerCharacter* Player);

@@ -93,6 +93,25 @@ time of day into numbered slots, and autosaves when you rest.
 
 `AOSFPlayerController` owns the UI state machine (menu stack, dialogue, notifications) and exposes it through
 `GetMenuEntries / MenuNavigate / MenuConfirm / MenuBack / OnMenuChanged`. `AOSFHUD` draws it on the canvas.
+Each `AOSFHUD` section can be switched off (`bDrawStatBars`, `bDrawEquipment`, `bDrawBossBar`, `bDrawPrompt`, ...,
+`ExternalMenus`, `ExternalNotifications`) so another layer, such as UMG or an embedded web HUD, can draw it while input stays
+with the controller.
+`bOpenTitleOnStart` opens a title menu (New Game / Continue / Quit) and adds "Quit to Title" to the game menu; menus in
+`PausingMenus` (and the title) pause the world, and menu input keeps working while paused. `IsUsingGamepad()` /
+`OnInputDeviceChanged` follow the last meaningful input so prompts and key hints can switch between keyboard and pad glyphs
+(`ControlsHintGamepad`, the canvas prompt and menu keys already do).
+
+## Feedback: sound and effects
+
+Hook points carry their own assets, nothing is hard-wired:
+- characters: `HitSound` / `GuardSound` (where the body is struck), `HurtVoice` (with a cooldown), `DeathSound`, `DodgeSound`;
+- weapons: `SwingSound`, `ImpactSound`, ranged `FireSound` / `ReloadSound`; items: `UseSound`;
+- attacks (`FOSFAttackDefinition`): `StartSound`, `StartEffect` (on the attacker) and `ImpactEffect` (where the hit lands), each
+  an `FOSFEffect` (Niagara or Cascade system, tint, scale, offset, attach) spawned through `UOSFCombatLibrary::SpawnEffect`;
+- dialogue lines: `FOSFDialogEntry::LineVoices` (same index as `Lines`); menus: `MenuMoveSound` / `MenuConfirmSound` /
+  `MenuBackSound` (UI sounds, audible while paused).
+
+Weapons can use a skeletal mesh (`WeaponSkeletalMesh`, e.g. swords with tassels) instead of `StaticMesh`.
 To build your own UMG UI, bind to the same API.
 
 ## Extension points

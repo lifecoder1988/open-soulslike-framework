@@ -16,6 +16,10 @@ class OPENSOULSLIKEFRAMEWORK_API UOSFCombatLibrary : public UBlueprintFunctionLi
 	GENERATED_BODY()
 
 public:
+	/** Spawns an effect at Location (or attached to AttachTo, Offset in its local space). Niagara gets the "Color" user parameter. */
+	UFUNCTION(BlueprintCallable, Category = "OSF|Effects", meta = (WorldContext = "WorldContext"))
+	static void SpawnEffect(const UObject* WorldContext, const FOSFEffect& Effect, const FVector& Location, const FRotator& Rotation, AActor* AttachTo = nullptr);
+
 	/** Weapon attack rating per damage type for an attacker (scaling, requirements, two-handing, buffs). */
 	UFUNCTION(BlueprintPure, Category = "OSF|Combat")
 	static TMap<FGameplayTag, float> GetAttackRating(const AActor* Attacker, const UOSFWeaponData* Weapon, bool bTwoHanded);

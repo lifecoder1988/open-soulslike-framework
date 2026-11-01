@@ -86,6 +86,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "OSF")
 	void Notify(const FText& Text, EOSFNotifyType Type);
 
+	/** Procedural camera shake: Amplitude cm of jitter decaying over Duration seconds. */
+	UFUNCTION(BlueprintCallable, Category = "OSF")
+	void AddCameraShake(float Amplitude, float Duration);
+
 	UFUNCTION(BlueprintCallable, Category = "OSF")
 	void SetActiveBoss(AOSFEnemyCharacter* Boss);
 
@@ -158,6 +162,9 @@ protected:
 	FTransform RespawnTransform;
 	FName LastRestingPointId;
 	double DodgePressTime = -1.0;
+	float ShakeAmplitude = 0.f;
+	float ShakeTime = 0.f;
+	FVector CameraBaseLocation = FVector::ZeroVector;
 	bool bFireHeld = false;
 	bool bDodgeHeld = false;
 	double LastTargetSwitchTime = 0.0;

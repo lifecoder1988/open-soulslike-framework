@@ -9,6 +9,8 @@
 #include "Items/OSFEquipmentComponent.h"
 #include "Items/OSFItemData.h"
 #include "OSFGameplayTags.h"
+#include "Characters/OSFPlayerCharacter.h"
+#include "Combat/OSFCombatLibrary.h"
 #include "OpenSoulslikeFramework.h"
 #include "Animation/AnimInstance.h"
 #include "Components/CapsuleComponent.h"
@@ -112,6 +114,60 @@ float UOSFCombatComponent::GetDamageNegation(FGameplayTag DamageType) const
 }
 
 FOSFHitInfo UOSFCombatComponent::ReceiveDamage(const FOSFDamageEvent& Event)
+{
+	const FOSFHitInfo Info = ResolveDamage(Event);
+	if (bPlayHitFeel && Info.Result != EOSFHitResult::Ignored)
+	{
+		PlayHitFeel(Event, Info);
+	}
+	return Info;
+}
+
+void UOSFCombatComponent::PlayHitFeel(const FOSFDamageEvent& Event, const FOSFHitInfo& Info)
+{
+	const FOSFHitFeel& Feel = Event.Spec.HitFeel;
+	AActor* Victim = GetOwner();
+	AActor* Attacker = Event.Instigator;
+	if (Event.Spec.ImpactEffect.IsSet() && Info.Result != EOSFHitResult::Ignored && Victim)
+	{
+		const FVector At = Event.HitLocation.IsNearlyZero() ? Victim->GetActorLocation() : Event.HitLocation;
+		UOSFCombatLibrary::SpawnEffect(this, Event.Spec.ImpactEffect, At, Attacker ? (Victim->GetActorLocation() - Attacker->GetActorLocation()).Rotation() : FRotator::ZeroRotator);
+	}
+	const bool bGuarded = Info.Result == EOSFHitResult::Guarded || Info.Result == EOSFHitResult::PerfectGuarded || Info.Result == EOSFHitResult::Parried;
+	const float Strength = bGuarded ? 0.5f : 1.f;
+
+	// Hit stop on both sides.
+	if (Feel.HitStop > 0.f)
+	{
+		if (AOSFCharacterBase* VictimCharacter = Cast<AOSFCharacterBase>(Victim)) { VictimCharacter->ApplyHitStop(Feel.HitStop); }
+		if (AOSFCharacterBase* AttackerCharacter = Cast<AOSFCharacterBase>(Attacker)) { AttackerCharacter->ApplyHitStop(Feel.HitStop); }
+	}
+	// Knockback along the hit direction (guarded hits push less; parries push the attacker instead).
+	ACharacter* Pushed = Info.Result == EOSFHitResult::Parried ? Cast<ACharacter>(Attacker) : Cast<ACharacter>(Victim);
+	const AActor* From = Info.Result == EOSFHitResult::Parried ? Victim : Attacker;
+	const float Resistance = Pushed == Victim ? KnockbackResistance : 0.f;
+	if (Pushed && From && Feel.Knockback > 0.f && Resistance < 1.f)
+	{
+		const FVector Direction = (Pushed->GetActorLocation() - From->GetActorLocation()).GetSafeNormal2D();
+		UOSFCombatLibrary::ApplyMovementBurst(Pushed, Direction, Feel.Knockback * Strength * (1.f - Resistance), 0.15f, TEXT("OSFKnockback"));
+	}
+	// Camera shake when the player is involved.
+	for (AActor* Actor : { Victim, Attacker })
+	{
+		if (AOSFPlayerCharacter* Player = Cast<AOSFPlayerCharacter>(Actor))
+		{
+			Player->AddCameraShake(Feel.CameraShake * Strength * (Actor == Victim ? 1.3f : 1.f), Feel.CameraShakeDuration);
+		}
+	}
+	// Flash and sparks on the victim, coloured by what was hit (flesh, bronze, a guarding blade...).
+	if (AOSFCharacterBase* VictimCharacter = Cast<AOSFCharacterBase>(Victim))
+	{
+		const FVector Location = Event.HitLocation.IsNearlyZero() ? VictimCharacter->GetActorLocation() + FVector(0.f, 0.f, 40.f) : Event.HitLocation;
+		VictimCharacter->PlayHitImpact(Location, Feel.Spark * Strength, bGuarded);
+	}
+}
+
+FOSFHitInfo UOSFCombatComponent::ResolveDamage(const FOSFDamageEvent& Event)
 {
 	FOSFHitInfo Info;
 	Info.Instigator = Event.Instigator;

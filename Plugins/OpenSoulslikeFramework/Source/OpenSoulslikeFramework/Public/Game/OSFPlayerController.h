@@ -10,6 +10,8 @@
 #include "OSFPlayerController.generated.h"
 
 class AOSFRestingPoint;
+class UAudioComponent;
+class USoundBase;
 class AOSFNPC;
 class UOSFItemData;
 
@@ -28,7 +30,8 @@ enum class EOSFMenu : uint8
 	Vendor,
 	Dialogue,
 	SaveSlots,
-	LoadSlots
+	LoadSlots,
+	Title		// start screen: New Game / Continue / Quit (bOpenTitleOnStart)
 };
 
 USTRUCT(BlueprintType)
@@ -86,6 +89,7 @@ struct FOSFMenuFrame
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOSFOnMenuChanged, EOSFMenu, NewMenu);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOSFOnInputDeviceChanged, bool, bGamepad);
 
 /**
  * Player controller: owns the UI state machine (menus, dialogue, notifications) independently from rendering.
@@ -103,9 +107,35 @@ public:
 
 	virtual void Tick(float DeltaSeconds) override;
 	virtual void BeginPlay() override;
+	virtual bool InputKey(const FInputKeyEventArgs& Params) override;
 
 	UPROPERTY(BlueprintAssignable, Category = "OSF|UI")
 	FOSFOnMenuChanged OnMenuChanged;
+
+	/** Opens the title menu (New Game / Continue / Quit) when play starts; the game menu then offers "Quit to Title". */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|UI")
+	bool bOpenTitleOnStart = false;
+
+	/** Menus that pause the world while they are anywhere in the menu stack (the title always pauses). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|UI")
+	TSet<EOSFMenu> PausingMenus;
+
+	/** Last meaningful input came from a gamepad: prompts and key hints should show pad glyphs. */
+	UFUNCTION(BlueprintPure, Category = "OSF|Input")
+	bool IsUsingGamepad() const { return bUsingGamepad; }
+
+	UPROPERTY(BlueprintAssignable, Category = "OSF|Input")
+	FOSFOnInputDeviceChanged OnInputDeviceChanged;
+
+	/** Menu feedback sounds (2D). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|UI")
+	TObjectPtr<USoundBase> MenuMoveSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|UI")
+	TObjectPtr<USoundBase> MenuConfirmSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|UI")
+	TObjectPtr<USoundBase> MenuBackSound;
 
 	// --- Menus ---
 
@@ -183,6 +213,8 @@ public:
 	UFUNCTION(Exec) void OSFLockOn();
 	/** Ranged weapons: switch to the next ammo type that has rounds, then reload. */
 	UFUNCTION(Exec) void OSFCycleAmmo();
+	/** Cycles the right-hand (1) or left-hand (0) weapon slot, like the cycle inputs. */
+	UFUNCTION(Exec) void OSFCycleWeapon(int32 bRightHand = 1);
 	/** Turns the player and camera towards the first actor whose name or class contains Filter. */
 	UFUNCTION(Exec) void OSFFace(const FString& Filter);
 	UFUNCTION(Exec) void OSFTeleport(float X, float Y, float Z);
@@ -210,6 +242,14 @@ protected:
 	int32 DialogueEntryIndex = INDEX_NONE;
 	int32 DialogueLine = 0;
 	bool bDialogueFinished = false;
+	bool bUsingGamepad = false;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> DialogueVoice;
+
+	/** Plays the current dialogue line's voice (stops the previous one). */
+	void PlayDialogueVoice();
+	void PlayMenuSound(USoundBase* Sound);
 	TMap<FGameplayTag, int32> PendingLevelUp;
 
 	void OnMenusChanged();

@@ -29,6 +29,7 @@ AOSFHUD::AOSFHUD()
 {
 	CurrencyLabel = LOCTEXT("Runes", "RUNES");
 	ControlsHint = LOCTEXT("Controls", "LMB light  Q heavy  RMB guard  F skill/parry  Space roll (hold: sprint)  C jump  Tab lock-on  R item  E interact  1/2/3 cycle  T two-hand  I menu");
+	ControlsHintGamepad = LOCTEXT("ControlsPad", "RB light  RT heavy  LB guard  LT skill/parry  B roll (hold: sprint)  Y jump  R3 lock-on  X item  A interact  D-pad cycle  Menu: menu");
 }
 
 #undef LOCTEXT_NAMESPACE
@@ -38,13 +39,15 @@ UFont* AOSFHUD::GetHUDFont(bool bLarge)
 	TObjectPtr<UFont>& Slot = bLarge ? LargeTextFont : TextFont;
 	if (!Slot)
 	{
-		// Runtime composite font: Roboto, with DroidSansFallback for every glyph Roboto lacks (CJK...).
+		// Runtime composite font: TextFontFile / LargeTextFontFile or Roboto, with DroidSansFallback for missing glyphs (CJK...).
 		const UFont* Base = bLarge ? GEngine->GetLargeFont() : GEngine->GetMediumFont();
 		UFont* Font = NewObject<UFont>(this, bLarge ? TEXT("OSFHUDFontLarge") : TEXT("OSFHUDFont"));
 		Font->FontCacheType = EFontCacheType::Runtime;
 		Font->LegacyFontSize = Base ? Base->LegacyFontSize : (bLarge ? 24 : 16);
 		const FString Fonts = FPaths::EngineContentDir() / TEXT("Slate/Fonts/");
-		Font->GetMutableInternalCompositeFont() = FCompositeFont(TEXT("Regular"), Fonts / (bLarge ? TEXT("Roboto-Bold.ttf") : TEXT("Roboto-Regular.ttf")), EFontHinting::Default, EFontLoadingPolicy::LazyLoad);
+		const FString& Custom = bLarge ? LargeTextFontFile : TextFontFile;
+		const FString File = !Custom.IsEmpty() && FPaths::FileExists(Custom) ? Custom : Fonts / (bLarge ? TEXT("Roboto-Bold.ttf") : TEXT("Roboto-Regular.ttf"));
+		Font->GetMutableInternalCompositeFont() = FCompositeFont(TEXT("Regular"), File, EFontHinting::Default, EFontLoadingPolicy::LazyLoad);
 		Font->GetMutableInternalCompositeFont().FallbackTypeface.Typeface.AppendFont(TEXT("Regular"), Fonts / TEXT("DroidSansFallback.ttf"), EFontHinting::Default, EFontLoadingPolicy::LazyLoad);
 		Slot = Font;
 	}
@@ -135,16 +138,48 @@ void AOSFHUD::DrawHUD()
 	{
 		return;
 	}
+	// The title screen covers everything.
+	if (PC->GetCurrentMenu() == EOSFMenu::Title)
+	{
+		DrawMenu(PC);
+		return;
+	}
 
 	if (!PC->IsInMenu() || PC->GetCurrentMenu() == EOSFMenu::Dialogue)
 	{
-		DrawEnemyBars(Player);
-		DrawCompass(Player);
-		DrawBossBar(Player);
-		DrawPrompt(Player);
+		if (bDrawEnemyBars)
+		{
+			DrawEnemyBars(Player);
+		}
+		if (bDrawLockOnReticle)
+		{
+			DrawLockOnReticle(Player);
+		}
+		if (bDrawCompass)
+		{
+			DrawCompass(Player);
+		}
+		if (bDrawBossBar)
+		{
+			DrawBossBar(Player);
+		}
+		if (bDrawPrompt)
+		{
+			DrawPrompt(Player);
+		}
 	}
-	DrawStats(Player);
-	DrawEquipment(Player);
+	if (bDrawStatBars || bDrawStatusEffects)
+	{
+		DrawStats(Player);
+	}
+	if (bDrawEquipment)
+	{
+		DrawEquipment(Player);
+	}
+	if (bDrawCurrency)
+	{
+		DrawCurrency(Player);
+	}
 	if (bShowQuestTracker && !PC->IsInMenu())
 	{
 		DrawQuests(Player);
@@ -164,14 +199,21 @@ void AOSFHUD::DrawStats(AOSFPlayerCharacter* Player)
 	float Y = S(44.f);
 	const float PxPerPoint = 0.55f;
 
-	const float HP = Stats->GetPercent(OSFTags::Stat_Health);
-	HealthTrail = HP < HealthTrail ? FMath::FInterpConstantTo(HealthTrail, HP, GetWorld()->GetDeltaSeconds(), 0.35f) : HP;
-	DrawBar(X, Y, S(FMath::Min(900.f, Stats->GetMax(OSFTags::Stat_Health) * PxPerPoint)), S(16.f), HP, FLinearColor(0.62f, 0.06f, 0.05f), HealthTrail);
-	Y += S(24.f);
-	DrawBar(X, Y, S(FMath::Min(600.f, Stats->GetMax(OSFTags::Stat_FP) * PxPerPoint * 2.2f)), S(10.f), Stats->GetPercent(OSFTags::Stat_FP), FLinearColor(0.1f, 0.25f, 0.75f));
-	Y += S(18.f);
-	DrawBar(X, Y, S(FMath::Min(600.f, Stats->GetMax(OSFTags::Stat_Stamina) * PxPerPoint * 2.6f)), S(10.f), Stats->GetPercent(OSFTags::Stat_Stamina), FLinearColor(0.15f, 0.55f, 0.15f));
-	Y += S(22.f);
+	if (bDrawStatBars)
+	{
+		const float HP = Stats->GetPercent(OSFTags::Stat_Health);
+		HealthTrail = HP < HealthTrail ? FMath::FInterpConstantTo(HealthTrail, HP, GetWorld()->GetDeltaSeconds(), 0.35f) : HP;
+		DrawBar(X, Y, S(FMath::Min(900.f, Stats->GetMax(OSFTags::Stat_Health) * PxPerPoint)), S(16.f), HP, FLinearColor(0.62f, 0.06f, 0.05f), HealthTrail);
+		Y += S(24.f);
+		DrawBar(X, Y, S(FMath::Min(600.f, Stats->GetMax(OSFTags::Stat_FP) * PxPerPoint * 2.2f)), S(10.f), Stats->GetPercent(OSFTags::Stat_FP), FLinearColor(0.1f, 0.25f, 0.75f));
+		Y += S(18.f);
+		DrawBar(X, Y, S(FMath::Min(600.f, Stats->GetMax(OSFTags::Stat_Stamina) * PxPerPoint * 2.6f)), S(10.f), Stats->GetPercent(OSFTags::Stat_Stamina), FLinearColor(0.15f, 0.55f, 0.15f));
+		Y += S(22.f);
+	}
+	if (!bDrawStatusEffects)
+	{
+		return;
+	}
 
 	if (const UOSFStatusEffectComponent* Status = Player->StatusEffects)
 	{
@@ -253,8 +295,10 @@ void AOSFHUD::DrawEquipment(AOSFPlayerCharacter* Player)
 	DrawSlot(BaseX, BaseY + Box * 1.1f, Left ? Left->DisplayName.ToString() : Unarmed, HandSub(Left, TEXT("L")), Left ? Left->Tint : FLinearColor::Gray);
 	DrawSlot(BaseX + Box * 2.2f, BaseY + Box * 1.1f, Right ? Right->DisplayName.ToString() : Unarmed, HandSub(Right, Equipment->IsTwoHanding() ? TEXT("R (2H)") : TEXT("R")), Right ? Right->Tint : FLinearColor::Gray);
 	DrawSlot(BaseX + Box * 1.1f, BaseY + Box * 2.2f, Quick ? Quick->DisplayName.ToString() : TEXT("-"), Quick ? FString::Printf(TEXT("%d"), Player->Inventory->GetItemCount(Quick)) : TEXT(""), Quick ? Quick->Tint : FLinearColor::Gray);
+}
 
-	// Currency
+void AOSFHUD::DrawCurrency(AOSFPlayerCharacter* Player)
+{
 	const FString Runes = FString::Printf(TEXT("%d"), Player->Inventory->GetCurrency());
 	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.5f), Canvas->ClipX - S(260.f), Canvas->ClipY - S(80.f), S(220.f), S(42.f));
 	DrawTextAt(Runes, Canvas->ClipX - S(60.f) - S(10.f) * Runes.Len(), Canvas->ClipY - S(74.f), FLinearColor(1.f, 0.9f, 0.6f), 1.3f);
@@ -375,7 +419,11 @@ void AOSFHUD::DrawEnemyBars(AOSFPlayerCharacter* Player)
 			DrawTextAt(NSLOCTEXT("OSFHUD", "Riposte", "RIPOSTE!").ToString(), Screen.X, Screen.Y - S(26.f), FLinearColor(1.f, 0.85f, 0.2f), 0.8f, true);
 		}
 	}
-	if (LockTarget)
+}
+
+void AOSFHUD::DrawLockOnReticle(AOSFPlayerCharacter* Player)
+{
+	if (Player->LockOn->GetTarget())
 	{
 		const FVector Screen = Project(Player->LockOn->GetTargetLocation(), true);
 		if (Screen.Z > 0.f)
@@ -413,7 +461,8 @@ void AOSFHUD::DrawPrompt(AOSFPlayerCharacter* Player)
 	const float CX = Canvas->ClipX * 0.5f;
 	const float Y = Canvas->ClipY * 0.72f;
 	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.6f), CX - S(260.f), Y - S(8.f), S(520.f), S(44.f));
-	DrawTextAt(FString::Printf(TEXT("[E]  %s"), *Prompt.ToString()), CX, Y, FLinearColor(1.f, 0.95f, 0.85f), 1.1f, true);
+	const AOSFPlayerController* PC = Cast<AOSFPlayerController>(GetOwningPlayerController());
+	DrawTextAt(FString::Printf(TEXT("%s  %s"), PC && PC->IsUsingGamepad() ? TEXT("[A]") : TEXT("[E]"), *Prompt.ToString()), CX, Y, FLinearColor(1.f, 0.95f, 0.85f), 1.1f, true);
 }
 
 void AOSFHUD::DrawNotifications(AOSFPlayerController* PC)
@@ -422,6 +471,10 @@ void AOSFHUD::DrawNotifications(AOSFPlayerController* PC)
 	for (const FOSFNotification& Notification : PC->GetNotifications())
 	{
 		const float Elapsed = Notification.Duration - Notification.Remaining;
+		if (ExternalNotifications.Contains(Notification.Type))
+		{
+			continue;
+		}
 		const float Alpha = FMath::Clamp(FMath::Min(Elapsed * 3.f, Notification.Remaining * 1.5f), 0.f, 1.f);
 		switch (Notification.Type)
 		{
@@ -448,7 +501,7 @@ void AOSFHUD::DrawNotifications(AOSFPlayerController* PC)
 
 void AOSFHUD::DrawMenu(AOSFPlayerController* PC)
 {
-	if (!PC->IsInMenu())
+	if (!PC->IsInMenu() || ExternalMenus.Contains(PC->GetCurrentMenu()))
 	{
 		return;
 	}
@@ -517,7 +570,10 @@ void AOSFHUD::DrawMenu(AOSFPlayerController* PC)
 		DrawRect(FLinearColor(0.03f, 0.03f, 0.03f, 0.85f), DX, PanelY, DW, S(480.f));
 		DrawWrapped(Details, DX + S(24.f), PanelY + S(24.f), DW - S(48.f), FLinearColor(0.9f, 0.9f, 0.9f), 0.95f);
 	}
-	DrawTextAt(NSLOCTEXT("OSFHUD", "MenuKeys", "[W/S] select   [A/D] adjust   [Enter/E] confirm   [Backspace] back").ToString(), PanelX, Canvas->ClipY - S(60.f), FLinearColor(0.7f, 0.7f, 0.7f), 0.8f);
+	const FText Keys = PC->IsUsingGamepad()
+		? NSLOCTEXT("OSFHUD", "MenuKeysPad", "[D-pad] select / adjust   [A] confirm   [B] back")
+		: NSLOCTEXT("OSFHUD", "MenuKeys", "[W/S] select   [A/D] adjust   [Enter/E] confirm   [Backspace] back");
+	DrawTextAt(Keys.ToString(), PanelX, Canvas->ClipY - S(60.f), FLinearColor(0.7f, 0.7f, 0.7f), 0.8f);
 }
 
 void AOSFHUD::DrawControls()
@@ -528,6 +584,7 @@ void AOSFHUD::DrawControls()
 		return;
 	}
 	const float Alpha = FMath::Clamp(static_cast<float>(25.0 - Elapsed) / 3.f, 0.f, 1.f);
-	DrawTextAt(ControlsHint.ToString(),
+	const AOSFPlayerController* PC = Cast<AOSFPlayerController>(GetOwningPlayerController());
+	DrawTextAt((PC && PC->IsUsingGamepad() && !ControlsHintGamepad.IsEmpty() ? ControlsHintGamepad : ControlsHint).ToString(),
 		Canvas->ClipX * 0.5f, Canvas->ClipY - S(34.f), FLinearColor(0.85f, 0.85f, 0.85f, Alpha), 0.75f, true);
 }

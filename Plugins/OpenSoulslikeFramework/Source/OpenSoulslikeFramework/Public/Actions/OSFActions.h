@@ -74,6 +74,7 @@ protected:
 	EOSFAttackType CurrentType = EOSFAttackType::Light;
 	int32 ComboIndex = 0;
 	bool bRightHand = true;
+	bool bLungeDone = false;
 	uint16 LungeRootMotionId = 0;
 };
 

@@ -364,9 +364,36 @@ bool AOSFPlayerCharacter::PerformAction(FGameplayTag ActionTag)
 
 // --- Tick ---------------------------------------------------------------------------
 
+void AOSFPlayerCharacter::AddCameraShake(float Amplitude, float Duration)
+{
+	if (Amplitude <= 0.f || Duration <= 0.f)
+	{
+		return;
+	}
+	if (ShakeTime <= 0.f)
+	{
+		CameraBaseLocation = FollowCamera->GetRelativeLocation();
+	}
+	ShakeAmplitude = FMath::Max(ShakeAmplitude, Amplitude);
+	ShakeTime = FMath::Max(ShakeTime, Duration);
+}
+
 void AOSFPlayerCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+
+	if (ShakeTime > 0.f)
+	{
+		// Real time: the shake keeps going through the hit stop.
+		ShakeTime -= GetWorld()->GetDeltaSeconds();
+		const float Strength = ShakeAmplitude * FMath::Clamp(ShakeTime * 4.f, 0.f, 1.f);
+		FollowCamera->SetRelativeLocation(CameraBaseLocation + FMath::VRand() * Strength);
+		if (ShakeTime <= 0.f)
+		{
+			ShakeAmplitude = 0.f;
+			FollowCamera->SetRelativeLocation(CameraBaseLocation);
+		}
+	}
 
 	if (bDodgeHeld && !IsSprinting() && DodgePressTime >= 0.0 && GetWorld()->GetTimeSeconds() - DodgePressTime >= SprintHoldThreshold && !ActionComponent->IsBusy())
 	{

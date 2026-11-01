@@ -1,6 +1,12 @@
 // Copyright Open Soulslike Framework contributors. MIT License.
 
 #include "Combat/OSFCombatLibrary.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraComponent.h"
+#include "NiagaraSystem.h"
+#include "Particles/ParticleSystem.h"
+#include "Particles/ParticleSystemComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "Combat/OSFCombatComponent.h"
 #include "Actions/OSFActionComponent.h"
 #include "Stats/OSFStatComponent.h"
@@ -80,6 +86,8 @@ FOSFDamageSpec UOSFCombatLibrary::MakeAttackDamageSpec(const AActor* Attacker, c
 	Spec.bCanBeGuarded = Attack.bCanBeGuarded;
 	Spec.bCanBeParried = Attack.bCanBeParried;
 	Spec.SourceTags.AddTag(OSFTags::Source_Melee);
+	Spec.HitFeel = Attack.HitFeel;
+	Spec.ImpactEffect = Attack.ImpactEffect;
 	return Spec;
 }
 
@@ -139,4 +147,35 @@ FString UOSFCombatLibrary::GetScalingGrade(float Coefficient)
 	if (Coefficient >= 0.25f) return TEXT("D");
 	if (Coefficient > 0.f) return TEXT("E");
 	return TEXT("-");
+}
+
+void UOSFCombatLibrary::SpawnEffect(const UObject* WorldContext, const FOSFEffect& Effect, const FVector& Location, const FRotator& Rotation, AActor* AttachTo)
+{
+	UWorld* World = WorldContext ? WorldContext->GetWorld() : nullptr;
+	if (!World || !Effect.System)
+	{
+		return;
+	}
+	const FVector Scale(Effect.Scale);
+	USceneComponent* Parent = AttachTo ? AttachTo->GetRootComponent() : nullptr;
+	if (UNiagaraSystem* Niagara = Cast<UNiagaraSystem>(Effect.System))
+	{
+		UNiagaraComponent* Component = (Effect.bAttach && Parent)
+			? UNiagaraFunctionLibrary::SpawnSystemAttached(Niagara, Parent, NAME_None, Effect.Offset, FRotator::ZeroRotator, Scale, EAttachLocation::KeepRelativeOffset, true, ENCPoolMethod::AutoRelease)
+			: UNiagaraFunctionLibrary::SpawnSystemAtLocation(World, Niagara, Location + (AttachTo ? AttachTo->GetActorRotation().RotateVector(Effect.Offset) : Effect.Offset), Rotation, Scale, true, true, ENCPoolMethod::AutoRelease);
+		if (Component)
+		{
+			Component->SetVariableLinearColor(TEXT("Color"), Effect.Color);
+		}
+	}
+	else if (UParticleSystem* Cascade = Cast<UParticleSystem>(Effect.System))
+	{
+		UParticleSystemComponent* Component = (Effect.bAttach && Parent)
+			? UGameplayStatics::SpawnEmitterAttached(Cascade, Parent, NAME_None, Effect.Offset, FRotator::ZeroRotator, Scale, EAttachLocation::KeepRelativeOffset)
+			: UGameplayStatics::SpawnEmitterAtLocation(World, Cascade, FTransform(Rotation, Location + (AttachTo ? AttachTo->GetActorRotation().RotateVector(Effect.Offset) : Effect.Offset), Scale));
+		if (Component)
+		{
+			Component->SetColorParameter(TEXT("Color"), Effect.Color);
+		}
+	}
 }

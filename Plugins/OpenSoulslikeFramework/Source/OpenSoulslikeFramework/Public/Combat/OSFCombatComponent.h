@@ -79,6 +79,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Combat")
 	float FinisherSearchRadius = 220.f;
 
+	/** 0..1: how much of incoming knockback is ignored (heavy bosses). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Combat|Reactions", meta = (ClampMin = 0, ClampMax = 1))
+	float KnockbackResistance = 0.f;
+
+	/** Hit stop, knockback, camera shake, flash and sparks from FOSFDamageSpec::HitFeel. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Combat|Reactions")
+	bool bPlayHitFeel = true;
+
 	UPROPERTY(BlueprintAssignable, Category = "OSF|Combat")
 	FOSFOnDamaged OnDamaged;
 
@@ -151,6 +159,8 @@ protected:
 	TWeakObjectPtr<AActor> CurrentExecutor;
 
 	bool IsFacing(const AActor* Other) const;
+	FOSFHitInfo ResolveDamage(const FOSFDamageEvent& Event);
+	void PlayHitFeel(const FOSFDamageEvent& Event, const FOSFHitInfo& Info);
 	float GetGuardAbsorption(FGameplayTag DamageType, float& OutGuardBoost) const;
 	void Die(AActor* Killer);
 	void PlayReactionMontage(UAnimMontage* Montage);

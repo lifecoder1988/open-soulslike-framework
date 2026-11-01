@@ -73,6 +73,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item")
 	TObjectPtr<UTexture2D> Icon = nullptr;
 
+	/** Played when the item takes effect (drink, injection, throw...). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item")
+	TObjectPtr<USoundBase> UseSound = nullptr;
+
+	/** Effect on the user when the item takes effect (healing glow...). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Item")
+	FOSFEffect UseEffect;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Item")
 	EOSFItemCategory Category = EOSFItemCategory::Consumable;
 
@@ -149,6 +157,14 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Ammo")
 	FLinearColor TracerColor = FLinearColor(1.f, 0.8f, 0.4f);
+
+	/** Bullets: no hit stop, a nudge and a small shake by default. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Ammo")
+	FOSFHitFeel HitFeel;
+
+	/** Effect where this round hits a character (blood mist, sha burn...). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ammo")
+	FOSFEffect ImpactEffect;
 };
 
 /** Ranged profile of a weapon. A weapon can have a melee moveset (butt strikes, bayonet) and a ranged profile at once. */
@@ -202,6 +218,10 @@ struct OPENSOULSLIKEFRAMEWORK_API FOSFRangedStats
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ranged")
 	TObjectPtr<USoundBase> FireSound = nullptr;
 
+	/** Muzzle flash at the barrel each shot (oriented along the shot). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ranged")
+	FOSFEffect MuzzleEffect;
+
 	/** Tracer / muzzle flash material (an emissive one reads much better); "Color" parameter = ammo tracer colour. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Ranged")
 	TObjectPtr<UMaterialInterface> TracerMaterial = nullptr;
@@ -226,6 +246,10 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
 	TObjectPtr<UStaticMesh> StaticMesh = nullptr;
+
+	/** Skeletal weapon mesh (tassels, chains...); used instead of StaticMesh when set, with the same MeshTransform. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
+	TObjectPtr<USkeletalMesh> WeaponSkeletalMesh = nullptr;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
 	FTransform MeshTransform;

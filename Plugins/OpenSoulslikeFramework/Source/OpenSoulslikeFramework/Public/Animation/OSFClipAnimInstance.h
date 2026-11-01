@@ -14,6 +14,7 @@ struct FOSFClipSample
 	const UAnimSequence* Sequence = nullptr;
 	float Time = 0.f;
 	float Weight = 0.f;
+	bool bUpperBody = false;
 };
 
 /** Evaluates the clip layers without an anim graph: idle / walk / run blended by speed, plus an action clip on top. */
@@ -28,9 +29,17 @@ struct OPENSOULSLIKEFRAMEWORK_API FOSFClipAnimInstanceProxy : public FAnimInstan
 	TArray<FOSFClipSample, TInlineAllocator<4>> Locomotion;
 	FOSFClipSample Action;
 	bool bLockRoot = true;
+	bool bInPlaceHips = true;
+	FName UpperBodyRootBone;
 
 private:
 	static void Sample(const FOSFClipSample& Clip, FPoseContext& Output);
+	void BuildUpperBodyMask(const FPoseContext& Output);
+
+	/** Per compact bone: 1 = upper body. Rebuilt when the required bones change. */
+	TArray<float> UpperMask;
+	uint16 UpperMaskSerial = 0;
+	FName UpperMaskRoot;
 };
 
 /**
@@ -70,6 +79,29 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Clips")
 	bool bLockRootToRefPose = true;
 
+	/**
+	 * In-place clips: the bones directly under the root (hips) keep only their vertical motion, like the
+	 * platform preview's stripRootMotion - stepping kicks and lunges don't slide the body off the capsule.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Clips")
+	bool bInPlaceHips = true;
+
+	/** First bone of the upper body for bUpperBody clips. None = first bone whose name contains "spine". */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Clips")
+	FName UpperBodyRootBone;
+
+	/**
+	 * Hit frame of a clip (sequence time) by its ImpactRule, from the skeleton's bone tracks:
+	 * Reach = a hand / foot (kick clips) / held weapon furthest forward from the hips along ComponentForward,
+	 * Energy = peak of summed joint rotation speed. Cached per clip.
+	 */
+	float FindImpactTime(const FOSFAnimClip& Clip, const FVector& ComponentForward);
+
+	/** True while Sequence is the playing action clip. */
+	bool IsPlayingSequence(const UAnimSequence* Sequence) const { return ActionClip.Sequence == Sequence && ActionWeightTarget > 0.f; }
+
+	/** Seconds since the action clip started (real time). */
+	float GetActionElapsed() const { return ActionElapsed; }
 	/** Plays a one-shot (or looping) clip over locomotion. Duration > 0 retimes the clip to last that long. */
 	UFUNCTION(BlueprintCallable, Category = "OSF|Clips")
 	void PlayActionClip(const FOSFAnimClip& Clip, float Duration = -1.f);
@@ -100,6 +132,8 @@ protected:
 
 	FOSFAnimClip ActionClip;
 	float ActionTime = 0.f;
+	float ActionElapsed = 0.f;
+	TMap<FString, float> ImpactCache;
 	float ActionRateScale = 1.f;
 	float ActionWeight = 0.f;
 	float ActionWeightTarget = 0.f;

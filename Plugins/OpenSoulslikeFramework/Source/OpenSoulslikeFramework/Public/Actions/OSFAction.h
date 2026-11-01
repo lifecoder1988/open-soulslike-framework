@@ -103,8 +103,9 @@ public:
 	FOSFActionTiming Timing;
 
 	/**
-	 * Clip played when the character uses UOSFClipAnimInstance and no montage plays. The procedural timeline is
-	 * stretched to the clip duration, so windows keep their proportions and the action ends with the clip.
+	 * Clip played when the character uses UOSFClipAnimInstance and no montage plays. The clip plays at its own
+	 * pace: the action lasts the clip, the Active window opens on the clip's hit frame (FOSFAnimClip::ImpactRule)
+	 * and lasts Timing.Active (0.08 - 0.3 s), the cancel / combo window opens at 45% of the clip.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Action")
 	FOSFAnimClip Clip;
@@ -164,6 +165,9 @@ public:
 	/** Timing actually used by the timeline (GetTiming, stretched to the clip in clip mode). */
 	const FOSFActionTiming& GetEffectiveTiming() const { return bClipMode ? ClipTiming : GetTiming(); }
 
+	/** Clip mode: seconds from the start of the action to the clip's hit frame (-1 otherwise). */
+	float GetClipImpactTime() const { return bClipMode ? ClipImpactTime : -1.f; }
+
 protected:
 	/** Override to pick a montage at activation (defaults to Montage). */
 	virtual UAnimMontage* GetMontageToPlay() const { return Montage; }
@@ -211,6 +215,7 @@ protected:
 	bool bClipMode = false;
 	bool bEnding = false;
 	FOSFActionTiming ClipTiming;
+	float ClipImpactTime = -1.f;
 
 private:
 	void UpdateProceduralTimeline();

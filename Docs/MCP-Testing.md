@@ -8,9 +8,13 @@ of *toolsets*. This project enables both, plus `AllToolsets`, and auto-starts th
 [/Script/ModelContextProtocolEngine.ModelContextProtocolSettings]
 bAutoStartServer=True
 ServerPortNumber=8000
+```
 
+```ini
+; Config/DefaultEditorSettings.ini - UEditorPerformanceSettings is an EditorSettings class:
+; in the per-project user settings file this key is ignored and PIE drops to ~3 FPS in the background.
 [/Script/UnrealEd.EditorPerformanceSettings]
-bThrottleCPUWhenNotForeground=False   ; keep PIE at full speed while an agent drives it
+bThrottleCPUWhenNotForeground=False
 ```
 
 Once the editor is open, any MCP client can connect to `http://127.0.0.1:8000/mcp`. The included

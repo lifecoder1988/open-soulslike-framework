@@ -117,5 +117,10 @@ UOSFInputConfig* UOSFInputConfig::BuildDefault(UObject* Outer)
 	Map(Config->MenuRight, { EKeys::Right, EKeys::D, EKeys::Gamepad_DPad_Right, EKeys::Gamepad_LeftStick_Right });
 	Map(Config->MenuConfirm, { EKeys::Enter, EKeys::E, EKeys::Gamepad_FaceButton_Bottom });
 	Map(Config->MenuBack, { EKeys::BackSpace, EKeys::Gamepad_FaceButton_Right });
+	// Menus that pause the world (title, optional pause menu) still need their input.
+	for (UInputAction* Action : { Config->Menu, Config->MenuUp, Config->MenuDown, Config->MenuLeft, Config->MenuRight, Config->MenuConfirm, Config->MenuBack })
+	{
+		Action->bTriggerWhenPaused = true;
+	}
 	return Config;
 }

@@ -40,9 +40,11 @@ public:
 
 protected:
 	virtual void OnPreStart() override;
+	virtual void OnStarted() override;
 	virtual void OnWindowChanged(EOSFActionWindow Window, bool bOpen) override;
 	virtual const FOSFActionTiming& GetTiming() const override { return CurrentTiming; }
-	virtual const FOSFAnimClip* GetClipToPlay() const override;
+	/** The fire clip is played by OnStarted (it must not stretch the shot timeline to the clip). */
+	virtual const FOSFAnimClip* GetClipToPlay() const override { return nullptr; }
 
 	UPROPERTY(Transient)
 	TObjectPtr<UOSFWeaponData> Weapon = nullptr;
@@ -86,6 +88,9 @@ public:
 
 	static AOSFTracer* Spawn(UWorld* World, const FVector& Start, const FVector& End, const FLinearColor& Color, bool bImpact, UMaterialInterface* Material = nullptr);
 
+	/** A short impact burst (no beam): flash sphere + light. */
+	static AOSFTracer* SpawnSpark(UWorld* World, const FVector& Location, const FLinearColor& Color, float Scale, UMaterialInterface* Material = nullptr);
+
 protected:
 	UPROPERTY(VisibleAnywhere, Category = "Tracer")
 	TObjectPtr<UStaticMeshComponent> Beam;
@@ -98,5 +103,6 @@ protected:
 
 	float Life = 0.f;
 	float MaxLife = 0.09f;
+	float SparkScale = 0.f;
 	FVector BeamScale = FVector::OneVector;
 };

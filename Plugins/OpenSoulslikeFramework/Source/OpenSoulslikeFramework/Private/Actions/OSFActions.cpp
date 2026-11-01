@@ -207,6 +207,7 @@ void UOSFAction_Attack::OnPreStart()
 
 void UOSFAction_Attack::OnStarted()
 {
+	bLungeDone = false;
 	if (CurrentAttack.bHyperArmor)
 	{
 		SetWindow(EOSFActionWindow::HyperArmor, true);
@@ -217,7 +218,15 @@ void UOSFAction_Attack::OnStarted()
 	}
 	if (CurrentWeapon && CurrentWeapon->SwingSound && GetCharacter())
 	{
-		UGameplayStatics::PlaySoundAtLocation(this, CurrentWeapon->SwingSound, GetCharacter()->GetActorLocation());
+		UGameplayStatics::PlaySoundAtLocation(this, CurrentWeapon->SwingSound, GetCharacter()->GetActorLocation(), 1.f, FMath::FRandRange(0.93f, 1.07f));
+	}
+	if (CurrentAttack.StartSound && GetCharacter())
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, CurrentAttack.StartSound, GetCharacter()->GetActorLocation());
+	}
+	if (CurrentAttack.StartEffect.IsSet() && GetCharacter())
+	{
+		UOSFCombatLibrary::SpawnEffect(this, CurrentAttack.StartEffect, GetCharacter()->GetActorLocation(), GetCharacter()->GetActorRotation(), GetCharacter());
 	}
 }
 
@@ -253,8 +262,9 @@ void UOSFAction_Attack::OnWindowChanged(EOSFActionWindow Window, bool bOpen)
 		AOSFWeaponActor* WeaponActor = Equipment ? Equipment->GetWeaponActor(bRightHand) : nullptr;
 		Trace->BeginTrace(Spec, CurrentAttack.Reach, CurrentAttack.TraceRadius, WeaponActor);
 
-		if (CurrentAttack.Lunge > 0.f && IsProcedural())
+		if (CurrentAttack.Lunge > 0.f && IsProcedural() && !bLungeDone)
 		{
+			bLungeDone = true;
 			ACharacter* Character = GetCharacter();
 			bool bTooClose = false;
 			if (const AOSFCharacterBase* OSFCharacter = Cast<AOSFCharacterBase>(Character))
@@ -282,6 +292,21 @@ void UOSFAction_Attack::OnTick(float DeltaTime)
 	if (!Character || !IsProcedural())
 	{
 		return;
+	}
+	// Clip mode: step in during the last three quarters of the windup, arriving on the hit frame.
+	const float Impact = GetClipImpactTime();
+	if (Impact > 0.f && !bLungeDone && CurrentAttack.Lunge > 0.f && Elapsed >= Impact * 0.25f)
+	{
+		bLungeDone = true;
+		bool bTooClose = false;
+		if (const AActor* Focus = Character->GetFocusTarget())
+		{
+			bTooClose = FVector::Dist2D(Focus->GetActorLocation(), Character->GetActorLocation()) < 150.f;
+		}
+		if (!bTooClose)
+		{
+			LungeRootMotionId = UOSFCombatLibrary::ApplyMovementBurst(Character, Character->GetActorForwardVector(), CurrentAttack.Lunge * 0.5f, FMath::Max(0.05f, Impact * 0.75f), TEXT("OSFLunge"));
+		}
 	}
 	// Procedural swing: raise back during windup, sweep during active, return during recovery.
 	const FOSFActionTiming& T = GetEffectiveTiming();
@@ -398,6 +423,10 @@ void UOSFAction_Dodge::OnPreStart()
 
 void UOSFAction_Dodge::OnStarted()
 {
+	if (const AOSFCharacterBase* Character = Cast<AOSFCharacterBase>(GetCharacter()); Character && Character->DodgeSound)
+	{
+		UGameplayStatics::PlaySoundAtLocation(this, Character->DodgeSound, Character->GetActorLocation(), 1.f, FMath::FRandRange(0.94f, 1.06f));
+	}
 	if (IsProcedural())
 	{
 		const float Duration = CurrentTiming.Windup + CurrentTiming.Active + CurrentTiming.Recovery * 0.4f;
@@ -529,6 +558,15 @@ void UOSFAction_UseItem::OnWindowChanged(EOSFActionWindow Window, bool bOpen)
 	if (Window == EOSFActionWindow::Active && bOpen && !bConsumed && UsingItem)
 	{
 		bConsumed = true;
+		if (UsingItem->UseSound)
+		{
+			UGameplayStatics::PlaySoundAtLocation(this, UsingItem->UseSound, ActionComponent->GetOwner()->GetActorLocation());
+		}
+		if (UsingItem->UseEffect.IsSet())
+		{
+			AActor* User = ActionComponent->GetOwner();
+			UOSFCombatLibrary::SpawnEffect(this, UsingItem->UseEffect, User->GetActorLocation(), User->GetActorRotation(), User);
+		}
 		if (UOSFInventoryComponent* Inventory = OSF::Get<UOSFInventoryComponent>(ActionComponent->GetOwner()))
 		{
 			Inventory->ConsumeItem(UsingItem);
@@ -654,6 +692,12 @@ void UOSFAction_Execute::OnWindowChanged(EOSFActionWindow Window, bool bOpen)
 	Spec.bIsCritical = true;
 	Spec.bCanBeGuarded = false;
 	Spec.bCanBeParried = false;
+	// Finisher: the heaviest hit feel.
+	Spec.HitFeel.HitStop = 0.12f;
+	Spec.HitFeel.Knockback = 35.f;
+	Spec.HitFeel.CameraShake = 7.f;
+	Spec.HitFeel.CameraShakeDuration = 0.28f;
+	Spec.HitFeel.Spark = 1.8f;
 
 	FOSFDamageEvent Event;
 	Event.Spec = Spec;

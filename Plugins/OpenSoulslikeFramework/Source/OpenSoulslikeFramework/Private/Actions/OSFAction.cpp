@@ -115,15 +115,22 @@ void UOSFAction::Start()
 		if (ToPlay && ToPlay->IsValid() && ClipAnim)
 		{
 			ClipTiming = GetTiming();
+			ClipImpactTime = -1.f;
 			const float Total = ClipTiming.GetTotal();
 			const float ClipDuration = ToPlay->GetDuration();
 			ClipAnim->PlayActionClip(*ToPlay, (bFitClipToTiming && !ToPlay->bLoop) ? Total : -1.f);
-			if (!bFitClipToTiming && Total > KINDA_SMALL_NUMBER && ClipDuration > KINDA_SMALL_NUMBER && !ToPlay->bLoop)
+			if (!bFitClipToTiming && ClipDuration > KINDA_SMALL_NUMBER && !ToPlay->bLoop)
 			{
-				const float Scale = ClipDuration / Total;
-				ClipTiming.Windup *= Scale;
-				ClipTiming.Active *= Scale;
-				ClipTiming.Recovery *= Scale;
+				// The clip keeps its own pace; the hit lands on its hit frame (same rule as the asset pipeline preview).
+				const FVector Forward = Character->GetMesh()->GetComponentTransform().InverseTransformVectorNoScale(Character->GetActorForwardVector());
+				const float Impact = FMath::Clamp((ClipAnim->FindImpactTime(*ToPlay, Forward) - ToPlay->Start) / FMath::Max(ToPlay->PlayRate, 0.05f), 0.f, ClipDuration);
+				const float ActiveLength = FMath::Clamp(ClipTiming.Active, 0.08f, 0.3f);
+				ClipTiming.Windup = FMath::Clamp(Impact - ActiveLength * 0.35f, 0.f, ClipDuration);
+				ClipTiming.Active = FMath::Min(ActiveLength, ClipDuration - ClipTiming.Windup);
+				ClipTiming.Recovery = FMath::Max(0.f, ClipDuration - ClipTiming.Windup - ClipTiming.Active);
+				const float ActiveEnd = ClipTiming.Windup + ClipTiming.Active;
+				ClipTiming.CancelWindowStart = ClipTiming.Recovery > KINDA_SMALL_NUMBER ? FMath::Clamp((ClipDuration * 0.45f - ActiveEnd) / ClipTiming.Recovery, 0.f, 1.f) : 0.f;
+				ClipImpactTime = Impact;
 			}
 			bClipMode = true;
 		}

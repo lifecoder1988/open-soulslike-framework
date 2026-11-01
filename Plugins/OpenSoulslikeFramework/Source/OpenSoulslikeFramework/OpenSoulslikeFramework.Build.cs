@@ -8,7 +8,7 @@ public class OpenSoulslikeFramework : ModuleRules
 
 		PublicDependencyModuleNames.AddRange(new string[]
 		{
-			"Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "GameplayTags", "Json", "AIModule", "NavigationSystem", "DeveloperSettings"
+			"Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "GameplayTags", "Json", "AIModule", "NavigationSystem", "DeveloperSettings", "Niagara"
 		});
 
 		PrivateDependencyModuleNames.AddRange(new string[]
