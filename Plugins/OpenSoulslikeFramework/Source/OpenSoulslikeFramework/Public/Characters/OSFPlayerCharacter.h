@@ -76,6 +76,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Camera")
 	float CameraHideMargin = 25.f;
 
+	/** Our own body is hidden while the collision-shortened boom leaves the camera closer than this (cm) to its pivot. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Camera")
+	float SelfHideDistance = 150.f;
+
 	// --- Soulslike flow ---
 
 	UFUNCTION(BlueprintCallable, Category = "OSF")

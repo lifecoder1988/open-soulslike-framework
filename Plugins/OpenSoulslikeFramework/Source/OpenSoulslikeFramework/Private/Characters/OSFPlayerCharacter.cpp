@@ -404,6 +404,13 @@ void AOSFPlayerCharacter::UpdateCameraOverlap()
 			Root->SetVisibility(!bInside, true);
 		}
 	}
+	// The boom pulled the camera into our own back (a wall or rock behind us): hide the body rather than fill the frame with it.
+	const bool bCameraInside = CameraBoom && FVector::Dist(Eye, CameraBoom->GetComponentLocation()) < SelfHideDistance;
+	USceneComponent* Body = UsesProceduralVisuals() ? static_cast<USceneComponent*>(VisualRoot) : static_cast<USceneComponent*>(GetMesh());
+	if (Body && Body->GetVisibleFlag() == bCameraInside && !IsDead())
+	{
+		Body->SetVisibility(!bCameraInside, true);
+	}
 }
 
 void AOSFPlayerCharacter::Tick(float DeltaSeconds)

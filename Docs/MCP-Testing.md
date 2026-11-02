@@ -46,6 +46,16 @@ Live Coding works through MCP too: type `LiveCoding.Compile` into the console, t
 | `OSFCycleAmmo`, `OSFFace <filter>` | next ammo type + reload / turn player and camera to an actor |
 | `OSFLockOn`, `OSFGod`, `OSFHeal`, `OSFKillAll`, `OSFRest`, `OSFGiveRunes n`, `OSFGiveItem id n`, `OSFSave n`, `OSFLoad n`, `OSFDebugTraces` | utilities |
 
+## Autopilot
+
+`UOSFAutoPilotComponent` (on the player pawn) plays a scripted route by itself through the same components player
+input uses: it walks with obstacle-avoiding sweeps, locks on, keeps its distance, shoots or swings, rolls out of
+wind-ups, answers perilous attacks with a shot, heals when low, and drives the title / dialogue / resting menus.
+A game subclasses it for its own rules (`IsWorldBusy` for cutscenes, `ChooseAmmo`, `OnCombatTick`) and builds the
+step list from its level data (`FOSFAutoTask::MoveTo / InteractWith / ClearArea / Wait / Milestone`). Console:
+`OSFAutoPilot start|stop|status`; milestones are logged as `[AutoPilot] ...` in `LogOSF`, so a recorder or test can
+follow the run (`GetLogEntries(category="LogOSF", pattern="\[AutoPilot\]")` - the pattern is a regex).
+
 ## End-to-end walkthrough
 
 ```bash

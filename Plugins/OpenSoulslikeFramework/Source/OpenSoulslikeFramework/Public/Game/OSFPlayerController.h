@@ -225,6 +225,8 @@ public:
 	UFUNCTION(Exec) void OSFInteract();
 	/** Teleport next to the first actor whose name or class contains Filter (e.g. "FogGate", "NPC", "Chest"). */
 	UFUNCTION(Exec) void OSFGoTo(const FString& Filter);
+	/** Autopilot (UOSFAutoPilotComponent on the pawn): start | stop | status. */
+	UFUNCTION(Exec) void OSFAutoPilot(const FString& Command);
 
 	/** Text summary of the player state (also printed by OSFStatus). */
 	UFUNCTION(BlueprintPure, Category = "OSF")

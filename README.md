@@ -54,6 +54,9 @@ OSF is an independent implementation written from scratch: no code or assets fro
   `SetupSkeletalMesh` sizes and grounds glTF / Tripo rigs, unrigged scans can be bodies; NPCs can use skeletal bodies too.
 - **Runtime translations** of the framework UI from a JSON table (CJK glyphs supported by the default HUD font).
 - Debug console commands (`OSFStatus`, `OSFAction`, `OSFGoTo`, `OSFInteract`, `OSFGod`, `OSFSave`…) make every system scriptable
+- **Autopilot** (`UOSFAutoPilotComponent`): plays a scripted route through the player's own input paths - walks, fights
+  (lock-on, spacing, shooting or swinging, rolls out of wind-ups, gun counters on perilous attacks, heals), rests, talks,
+  opens doors - for recorded playthroughs and end-to-end playtests without a human at the controls (`OSFAutoPilot start`)
 - 13 automation tests, plus an MCP-driven end-to-end walkthrough
 
 ## Requirements
@@ -113,6 +116,7 @@ MIT, see [LICENSE](LICENSE). Unreal Engine is a trademark of Epic Games; use of 
 
 ### 已实现的系统
 
+- **自动驾驶**：`UOSFAutoPilotComponent` 按脚本走路线、打怪（锁定、拉距离、射击 / 挥砍、读前摇翻滚、危招枪反、回血）、休息、对话、开门，用于录制通关视频和无人端到端测试
 - **战斗**：动作系统、输入缓冲、连招、轻/重/冲刺/跳跃攻击、武器战技、格挡、完美格挡、破防、弹反、架势（Poise）崩溃、霸体、翻滚无敌帧、背刺、处决（Riposte）、武器轨迹检测、伤害类型与属性补正（E–S）、双持、锁定
 - **状态异常与 Buff**：出血、中毒、腐败、冻伤（积累与衰减）、抗性、计时 Buff/Debuff
 - **RPG**：8 项属性、升级、背包、仓库、原素瓶（休息时补满）、消耗品、钥匙、制作配方、装备（左右手各 3 把武器、四件护甲、护符、5 个快捷道具）、负重

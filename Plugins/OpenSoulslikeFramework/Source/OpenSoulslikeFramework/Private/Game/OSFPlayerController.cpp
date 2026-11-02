@@ -11,6 +11,7 @@
 #include "Combat/OSFWeaponTraceComponent.h"
 #include "Interaction/OSFNPC.h"
 #include "Interaction/OSFInteractionComponent.h"
+#include "AI/OSFAutoPilotComponent.h"
 #include "Interaction/OSFWorldInteractables.h"
 #include "Items/OSFEquipmentComponent.h"
 #include "Items/OSFInventoryComponent.h"
@@ -1330,6 +1331,26 @@ void AOSFPlayerController::OSFGoTo(const FString& Filter)
 		return;
 	}
 	UE_LOG(LogOSF, Warning, TEXT("OSFGoTo: nothing matches '%s'"), *Filter);
+}
+
+void AOSFPlayerController::OSFAutoPilot(const FString& Command)
+{
+	AOSFPlayerCharacter* Hero = GetOSFPlayer();
+	UOSFAutoPilotComponent* Pilot = Hero ? Hero->FindComponentByClass<UOSFAutoPilotComponent>() : nullptr;
+	if (!Pilot)
+	{
+		UE_LOG(LogOSF, Warning, TEXT("OSFAutoPilot: the pawn has no autopilot component (the game builds one with its script)"));
+		return;
+	}
+	if (Command == TEXT("start"))
+	{
+		Pilot->Start();
+	}
+	else if (Command == TEXT("stop"))
+	{
+		Pilot->Stop();
+	}
+	UE_LOG(LogOSF, Log, TEXT("OSFAutoPilot: %s"), *Pilot->GetStatus());
 }
 
 #undef LOCTEXT_NAMESPACE
