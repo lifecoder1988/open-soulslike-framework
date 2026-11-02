@@ -594,11 +594,17 @@ bool UOSFAutoPilotComponent::TryHeal(const TArray<AOSFEnemyCharacter*>& Hostiles
 	{
 		return false;
 	}
-	// Not with a blade already swinging at us.
+	// Not with a blade already swinging at us - unless we are about to drop anyway.
+	const bool bDesperate = Health / MaxHealth < HealBelowFraction * 0.6f;
 	for (const AOSFEnemyCharacter* Hostile : Hostiles)
 	{
-		const UOSFAction* Action = Hostile->ActionComponent->GetCurrentAction();
-		if (Action && Action->IsRunning() && FVector::Dist2D(Hostile->GetActorLocation(), Player->GetActorLocation()) < 450.f)
+		const UOSFAction_Attack* Attack = Cast<UOSFAction_Attack>(Hostile->ActionComponent->GetCurrentAction());
+		if (!Attack || !Attack->IsRunning() || FVector::Dist2D(Hostile->GetActorLocation(), Player->GetActorLocation()) > 450.f)
+		{
+			continue;
+		}
+		const float Impact = Attack->GetClipImpactTime() >= 0.f ? Attack->GetClipImpactTime() : Attack->GetEffectiveTiming().Windup;
+		if (!bDesperate || Impact - Attack->GetElapsed() < 0.6f)
 		{
 			return false;
 		}
