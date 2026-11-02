@@ -42,6 +42,7 @@ Feature list of the commercial Soulslike Framework (from its forum post) compare
 | Clip animation without anim blueprints | ✅ | `UOSFClipAnimInstance`: idle / walk / run by speed + trimmed action clips (`FOSFAnimClip` = sequence, start, end, rate, loop); root locked to the reference pose for in-place clips (glTF imports) |
 | Imported skeletal characters | ✅ | `AOSFCharacterBase::SetupSkeletalMesh` (height, feet, yaw), per-skeleton hand sockets, weapons aligned to the owner for unknown bone axes, static-mesh bodies for unrigged models |
 | Quests | ✅ | `UOSFQuestData` (kill / flag / progress / item objectives, rewards) tracked through progress flags and counters, so quests save with the game; HUD tracker |
+| Aim pose for held guns | ✅ | `AOSFCharacterBase::UpdateAimPose` + `UOSFClipAnimInstance::SetAim`: the torso turns so the weapon mesh's barrel axis points along the aim direction (lock-on target / view), exact per frame, clamped by `MaxAimAngle`; procedural recoil kick; muzzle = far end of the barrel |
 | Autopilot | ✅ | `UOSFAutoPilotComponent`: scripted steps (MoveTo / Interact / ClearArea / Wait / Custom) + a combat loop through the player's own input paths; games subclass it for their rules (ammo, meters, cutscenes). `OSFAutoPilot start` |
 | Runtime translations | ✅ | `UOSFLocalization::LoadTranslationTable` registers a JSON table as polyglot text (template: `Tools/Localization/extract_osf_text.py`); the HUD font falls back to CJK glyphs |
 

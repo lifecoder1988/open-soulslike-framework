@@ -9,6 +9,7 @@
 #include "GameFramework/Pawn.h"
 #include "Animation/Skeleton.h"
 #include "ReferenceSkeleton.h"
+#include "BonePose.h"
 
 float FOSFAnimClip::GetEnd() const
 {
@@ -415,7 +416,22 @@ void FOSFClipAnimInstanceProxy::PreUpdate(UAnimInstance* InAnimInstance, float D
 		bLockRoot = Instance->bLockRootToRefPose;
 		bInPlaceHips = Instance->bInPlaceHips;
 		UpperBodyRootBone = Instance->UpperBodyRootBone;
+		AimBone = Instance->AimRootBone;
+		AimHandBone = Instance->GetAimHandBone();
+		AimBarrelInHand = Instance->GetAimBarrelInHand();
+		AimDirection = Instance->GetAimDirection();
+		AimWeight = Instance->GetAimWeight();
+		AimMaxAngle = Instance->GetAimMaxAngle();
 	}
+}
+
+void UOSFClipAnimInstance::SetAim(FName HandBone, const FVector& BarrelInHand, const FVector& Direction, float Weight, float MaxAngle)
+{
+	AimHandBone = HandBone;
+	AimBarrelInHand = BarrelInHand.GetSafeNormal();
+	AimDirection = Direction.GetSafeNormal();
+	AimWeight = FMath::Clamp(Weight, 0.f, 1.f);
+	AimMaxAngle = MaxAngle;
 }
 
 void FOSFClipAnimInstanceProxy::BuildUpperBodyMask(const FPoseContext& Output)
@@ -533,6 +549,47 @@ bool FOSFClipAnimInstanceProxy::Evaluate(FPoseContext& Output)
 				{
 					Output.Pose[Index] = (Output.Pose[Index] * AnimRoot).GetRelativeTransform(RefRoot);
 				}
+			}
+		}
+	}
+	// Aim pose: turn the torso (and with it both arms and the gun they hold) so the barrel points along the aim direction.
+	if (AimWeight > KINDA_SMALL_NUMBER && !AimHandBone.IsNone() && Output.Pose.GetNumBones() > 1)
+	{
+		const FBoneContainer& Bones = Output.Pose.GetBoneContainer();
+		const FReferenceSkeleton& Ref = Bones.GetReferenceSkeleton();
+		int32 MeshIndex = AimBone.IsNone() ? INDEX_NONE : Ref.FindBoneIndex(AimBone);
+		for (int32 Index = 0; MeshIndex == INDEX_NONE && Index < Ref.GetNum(); ++Index)
+		{
+			if (Ref.GetBoneName(Index).ToString().Contains(TEXT("spine"), ESearchCase::IgnoreCase))
+			{
+				MeshIndex = Index;
+			}
+		}
+		const int32 HandMeshIndex = Ref.FindBoneIndex(AimHandBone);
+		const FCompactPoseBoneIndex Bone = MeshIndex == INDEX_NONE ? FCompactPoseBoneIndex(INDEX_NONE) : Bones.MakeCompactPoseIndex(FMeshPoseBoneIndex(MeshIndex));
+		const FCompactPoseBoneIndex Hand = HandMeshIndex == INDEX_NONE ? FCompactPoseBoneIndex(INDEX_NONE) : Bones.MakeCompactPoseIndex(FMeshPoseBoneIndex(HandMeshIndex));
+		if (Bone != INDEX_NONE && Bone.GetInt() > 0 && Hand != INDEX_NONE)
+		{
+			FCSPose<FCompactPose> ComponentSpace;
+			ComponentSpace.InitPose(Output.Pose);
+			const FVector Current = ComponentSpace.GetComponentSpaceTransform(Hand).GetRotation().RotateVector(AimBarrelInHand).GetSafeNormal();
+			if (!Current.IsNearlyZero() && !AimDirection.IsNearlyZero())
+			{
+				// The hand hangs off the torso: one rigid turn of the torso turns the barrel by exactly the same amount.
+				FQuat Delta = FQuat::FindBetweenNormals(Current, AimDirection);
+				FVector Axis;
+				float Angle;
+				Delta.ToAxisAndAngle(Axis, Angle);
+				const float MaxRadians = FMath::DegreesToRadians(AimMaxAngle);
+				if (Angle > MaxRadians)
+				{
+					Delta = FQuat(Axis, MaxRadians);
+				}
+				Delta = FQuat::Slerp(FQuat::Identity, Delta, AimWeight).GetNormalized();
+				FTransform BoneCS = ComponentSpace.GetComponentSpaceTransform(Bone);
+				BoneCS.SetRotation((Delta * BoneCS.GetRotation()).GetNormalized());
+				const FTransform ParentCS = ComponentSpace.GetComponentSpaceTransform(Output.Pose.GetParentBoneIndex(Bone));
+				Output.Pose[Bone] = BoneCS.GetRelativeTransform(ParentCS);
 			}
 		}
 	}

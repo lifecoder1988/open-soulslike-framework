@@ -4,6 +4,7 @@
 #include "Items/OSFItemData.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Engine/StaticMesh.h"
 #include "Kismet/GameplayStatics.h"
 
 AOSFWeaponActor::AOSFWeaponActor()
@@ -51,6 +52,7 @@ void AOSFWeaponActor::InitializeWeapon(UOSFWeaponData* InData)
 		Mesh->SetStaticMesh(InData->StaticMesh);
 		Mesh->SetRelativeTransform(InData->MeshTransform);
 	}
+	bBarrelCached = false;
 }
 
 void AOSFWeaponActor::ApplyBoneSpaceScale(float HolderScale)
@@ -63,6 +65,72 @@ void AOSFWeaponActor::ApplyBoneSpaceScale(float HolderScale)
 	Scaled.SetTranslation(Scaled.GetTranslation() * HolderScale);
 	Scaled.SetScale3D(Scaled.GetScale3D() * HolderScale);
 	(WeaponData->WeaponSkeletalMesh ? static_cast<USceneComponent*>(SkeletalMesh) : static_cast<USceneComponent*>(Mesh))->SetRelativeTransform(Scaled);
+	bBarrelCached = false;
+}
+
+void AOSFWeaponActor::CacheBarrel()
+{
+	bBarrelCached = true;
+	BarrelLocal = FVector::ForwardVector;
+	MuzzleLocal = FVector(WeaponData ? WeaponData->BladeLength : 100.f, 0.f, 0.f);
+	const UStaticMesh* StaticMesh = Mesh ? Mesh->GetStaticMesh() : nullptr;
+	if (!StaticMesh)
+	{
+		return;
+	}
+	// Longest side of the mesh, signed so it runs from the hand (the actor origin, in mesh space) toward the far end.
+	const FBox Box = StaticMesh->GetBoundingBox();
+	const FVector Size = Box.GetSize();
+	const int32 Axis = (Size.X >= Size.Y && Size.X >= Size.Z) ? 0 : (Size.Y >= Size.Z ? 1 : 2);
+	const FVector HandLocal = Mesh->GetRelativeTransform().Inverse().TransformPosition(FVector::ZeroVector);
+	const bool bPositive = (Box.Max[Axis] - HandLocal[Axis]) >= (HandLocal[Axis] - Box.Min[Axis]);
+	BarrelLocal = FVector::ZeroVector;
+	BarrelLocal[Axis] = bPositive ? 1.f : -1.f;
+	MuzzleLocal = Box.GetCenter();
+	MuzzleLocal[Axis] = bPositive ? Box.Max[Axis] : Box.Min[Axis];
+}
+
+FVector AOSFWeaponActor::GetBarrelDirection() const
+{
+	if (!Mesh || !Mesh->GetStaticMesh())
+	{
+		return GetActorForwardVector();
+	}
+	if (!bBarrelCached)
+	{
+		const_cast<AOSFWeaponActor*>(this)->CacheBarrel();
+	}
+	return Mesh->GetComponentTransform().TransformVectorNoScale(BarrelLocal).GetSafeNormal();
+}
+
+FVector AOSFWeaponActor::GetBarrelInActorSpace() const
+{
+	if (!Mesh || !Mesh->GetStaticMesh())
+	{
+		return FVector::ForwardVector;
+	}
+	if (!bBarrelCached)
+	{
+		const_cast<AOSFWeaponActor*>(this)->CacheBarrel();
+	}
+	return Mesh->GetRelativeTransform().TransformVectorNoScale(BarrelLocal).GetSafeNormal();
+}
+
+FVector AOSFWeaponActor::GetMuzzleLocation() const
+{
+	if (Mesh && Mesh->GetStaticMesh() && Mesh->DoesSocketExist(TEXT("Muzzle")))
+	{
+		return Mesh->GetSocketLocation(TEXT("Muzzle"));
+	}
+	if (!Mesh || !Mesh->GetStaticMesh())
+	{
+		return GetActorTransform().TransformPosition(MuzzleLocal);
+	}
+	if (!bBarrelCached)
+	{
+		const_cast<AOSFWeaponActor*>(this)->CacheBarrel();
+	}
+	return Mesh->GetComponentTransform().TransformPosition(MuzzleLocal);
 }
 
 void AOSFWeaponActor::GetBladePoints(FVector& OutStart, FVector& OutEnd) const

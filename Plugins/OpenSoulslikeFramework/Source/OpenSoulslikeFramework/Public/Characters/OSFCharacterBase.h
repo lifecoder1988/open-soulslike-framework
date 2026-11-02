@@ -141,6 +141,33 @@ public:
 	UFUNCTION(BlueprintPure, Category = "OSF|Animation")
 	UOSFClipAnimInstance* GetClipAnimInstance() const;
 
+	// --- Aim pose (clip animation + a held gun) ---
+
+	/** Torso bone turned toward the aim direction while a gun is held on a target or has just fired (None = first "spine" bone). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	FName AimRootBone;
+
+	/** Largest torso turn (degrees) the aim pose applies; the rest is up to the character's facing. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation", meta = (ClampMin = "0", ClampMax = "90"))
+	float MaxAimAngle = 70.f;
+
+	/** Seconds the aim pose keeps up after the last shot without a target. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	float AimHoldAfterShot = 1.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	float AimBlendTime = 0.18f;
+
+	/** Barrel kick (degrees up) per shot, settling back at RecoilRecovery per second. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	float RecoilKick = 3.5f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	float RecoilRecovery = 14.f;
+
+	/** World direction the character aims a gun at: the focus target, else its facing (players: the control rotation). */
+	virtual FVector GetAimDirection() const;
+
 	/**
 	 * Assigns a skeletal mesh at runtime: scales it to TargetHeight (cm), puts its feet on the capsule bottom and
 	 * applies YawOffset (meshes facing +Y need -90). Hides the procedural body. Call before or after BeginPlay.
@@ -295,6 +322,15 @@ protected:
 	void InitClipAnimation();
 	virtual void UpdateStaminaRegen();
 	virtual void UpdateLadder(float DeltaSeconds);
+	/** Turns the torso so the held gun's forward settles on GetAimDirection (clip animation only). */
+	virtual void UpdateAimPose(float DeltaSeconds);
+
+	UFUNCTION()
+	void HandleShotFiredForAim(UOSFEquipmentComponent* InEquipment, UOSFWeaponData* Weapon, int32 Hits);
+
+	float AimWeight = 0.f;
+	float Recoil = 0.f;
+	double LastShotTime = -100.0;
 
 	FVector DesiredMoveDirection = FVector::ZeroVector;
 

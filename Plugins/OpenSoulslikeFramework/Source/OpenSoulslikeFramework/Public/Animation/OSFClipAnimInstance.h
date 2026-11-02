@@ -31,6 +31,13 @@ struct OPENSOULSLIKEFRAMEWORK_API FOSFClipAnimInstanceProxy : public FAnimInstan
 	bool bLockRoot = true;
 	bool bInPlaceHips = true;
 	FName UpperBodyRootBone;
+	/** Aim pose: the torso (AimBone) is turned so the barrel held in AimHandBone points along AimDirection (component space). */
+	FName AimBone;
+	FName AimHandBone;
+	FVector AimBarrelInHand = FVector::ForwardVector;
+	FVector AimDirection = FVector::ForwardVector;
+	float AimWeight = 0.f;
+	float AimMaxAngle = 70.f;
 
 private:
 	static void Sample(const FOSFClipSample& Clip, FPoseContext& Output);
@@ -108,6 +115,22 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Clips")
 	FName UpperBodyRootBone;
 
+	/** Bone turned by the aim pose (SetAim): the torso. None = UpperBodyRootBone's rule (first "spine" bone). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Clips")
+	FName AimRootBone;
+
+	/**
+	 * Aim pose: AimRootBone is turned (by up to MaxAngle degrees, blended by Weight) so that BarrelInHand - the gun's
+	 * barrel axis in HandBone's space - points along Direction (component space), on top of whatever the clips do.
+	 * Evaluated on the pose itself, so it is exact every frame (AOSFCharacterBase::UpdateAimPose drives it).
+	 */
+	void SetAim(FName HandBone, const FVector& BarrelInHand, const FVector& Direction, float Weight, float MaxAngle);
+	FName GetAimHandBone() const { return AimHandBone; }
+	const FVector& GetAimBarrelInHand() const { return AimBarrelInHand; }
+	const FVector& GetAimDirection() const { return AimDirection; }
+	float GetAimWeight() const { return AimWeight; }
+	float GetAimMaxAngle() const { return AimMaxAngle; }
+
 	/**
 	 * Hit frame of a clip (sequence time) by its ImpactRule, from the skeleton's bone tracks:
 	 * Reach = a hand / foot (kick clips) / held weapon furthest forward from the hips along ComponentForward,
@@ -161,6 +184,12 @@ protected:
 	float ActionBlendOut = 0.2f;
 	bool bHoldAction = false;
 	bool bHoldActionAtEnd = false;
+
+	FName AimHandBone;
+	FVector AimBarrelInHand = FVector::ForwardVector;
+	FVector AimDirection = FVector::ForwardVector;
+	float AimWeight = 0.f;
+	float AimMaxAngle = 70.f;
 
 	float IdleTime = 0.f;
 	float WalkTime = 0.f;

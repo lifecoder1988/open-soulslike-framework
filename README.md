@@ -52,6 +52,7 @@ OSF is an independent implementation written from scratch: no code or assets fro
 - Works **with zero art**: without a skeletal mesh, characters render as procedural bodies with procedural swings, rolls, guard, stagger and death. Assign a mesh and montages and the anim notifies take over (`OSF Weapon Trace`, `OSF I-Frames`, `OSF Hyper Armor`, `OSF Input Buffer`, `OSF Parry Window`, `OSF Adjust Stat`).
 - **Imported characters without anim blueprints**: `UOSFClipAnimInstance` plays trimmed clips (idle / walk / run by speed, action clips),
   `SetupSkeletalMesh` sizes and grounds glTF / Tripo rigs, unrigged scans can be bodies; NPCs can use skeletal bodies too.
+  Held guns get an **aim pose**: the torso turns so the barrel (the mesh's long axis) points at the lock-on target, with a recoil kick per shot.
 - **Runtime translations** of the framework UI from a JSON table (CJK glyphs supported by the default HUD font).
 - Debug console commands (`OSFStatus`, `OSFAction`, `OSFGoTo`, `OSFInteract`, `OSFGod`, `OSFSave`…) make every system scriptable
 - **Autopilot** (`UOSFAutoPilotComponent`): plays a scripted route through the player's own input paths - walks, fights

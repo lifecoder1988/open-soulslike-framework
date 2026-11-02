@@ -24,6 +24,8 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "UObject/ConstructorHelpers.h"
 #include "Engine/StaticMesh.h"
+#include "Items/OSFWeaponActor.h"
+#include "GameFramework/Controller.h"
 
 AOSFCharacterBase::AOSFCharacterBase(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer)
@@ -100,6 +102,10 @@ void AOSFCharacterBase::BeginPlay()
 
 	bProceduralVisuals = !(GetMesh() && GetMesh()->GetSkeletalMeshAsset());
 	VisualRoot->SetVisibility(bProceduralVisuals, true);
+	if (Equipment)
+	{
+		Equipment->OnShotFired.AddDynamic(this, &AOSFCharacterBase::HandleShotFiredForAim);
+	}
 	VisualRoot->SetRelativeScale3D(FVector(VisualScale));
 	if (bProceduralVisuals && BodyStaticMesh)
 	{
@@ -254,7 +260,65 @@ void AOSFCharacterBase::Tick(float DeltaSeconds)
 	else if (GetClipAnimInstance())
 	{
 		UpdateSkeletalPose(DeltaSeconds);
+		UpdateAimPose(DeltaSeconds);
 	}
+}
+
+void AOSFCharacterBase::HandleShotFiredForAim(UOSFEquipmentComponent* InEquipment, UOSFWeaponData* Weapon, int32 Hits)
+{
+	LastShotTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0;
+	Recoil = FMath::Min(Recoil + RecoilKick, RecoilKick * 3.f);
+}
+
+FVector AOSFCharacterBase::GetAimDirection() const
+{
+	if (const AActor* Target = GetFocusTarget())
+	{
+		const FVector From = GetActorLocation() + FVector(0.f, 0.f, 40.f);
+		return (Target->GetActorLocation() - From).GetSafeNormal();
+	}
+	if (const AController* MyController = GetController(); MyController && MyController->IsPlayerController())
+	{
+		return MyController->GetControlRotation().Vector();
+	}
+	return GetActorForwardVector();
+}
+
+void AOSFCharacterBase::UpdateAimPose(float DeltaSeconds)
+{
+	UOSFClipAnimInstance* Clip = GetClipAnimInstance();
+	if (!Clip || !Equipment)
+	{
+		return;
+	}
+	// The held gun: its actor's forward is where the clips leave it pointing (hip carry, across the chest...).
+	UOSFWeaponData* Gun = Equipment->GetActiveRangedWeapon();
+	const AOSFWeaponActor* GunActor = Gun ? Equipment->GetWeaponActor(Equipment->GetEquippedWeapon(true) == Gun) : nullptr;
+	const double Now = GetWorld()->GetTimeSeconds();
+	const bool bWantAim = Gun && GunActor && !IsDead() && !HasStateTag(OSFTags::State_Dodging) && !HasStateTag(OSFTags::State_Staggered)
+		&& !HasStateTag(OSFTags::State_OnLadder) && !HasStateTag(OSFTags::State_Reloading) && !HasStateTag(OSFTags::State_Resting)
+		&& (GetFocusTarget() != nullptr || Now - LastShotTime < AimHoldAfterShot);
+	const float Rate = AimBlendTime > 0.f ? DeltaSeconds / AimBlendTime : 1.f;
+	AimWeight = FMath::Clamp(AimWeight + (bWantAim ? Rate : -Rate), 0.f, 1.f);
+	Recoil = FMath::FInterpTo(Recoil, 0.f, DeltaSeconds, RecoilRecovery);
+	if (AimWeight <= 0.f || !GunActor)
+	{
+		Clip->SetAim(NAME_None, FVector::ForwardVector, FVector::ForwardVector, 0.f, MaxAimAngle);
+		return;
+	}
+	// Where the barrel should point, in the mesh's component space, kicked up by the recoil of the last shots.
+	FVector Desired = GetAimDirection();
+	if (Recoil > 0.01f)
+	{
+		const FVector Side = FVector::CrossProduct(Desired, FVector::UpVector).GetSafeNormal();
+		if (!Side.IsNearlyZero())
+		{
+			Desired = Desired.RotateAngleAxis(-Recoil, Side);
+		}
+	}
+	const FTransform MeshTransform = GetMesh()->GetComponentTransform();
+	Clip->AimRootBone = AimRootBone;
+	Clip->SetAim(GunActor->GetAttachParentSocketName(), GunActor->GetBarrelInActorSpace(), MeshTransform.InverseTransformVectorNoScale(Desired), AimWeight, MaxAimAngle);
 }
 
 void AOSFCharacterBase::ApplyHitStop(float Seconds)

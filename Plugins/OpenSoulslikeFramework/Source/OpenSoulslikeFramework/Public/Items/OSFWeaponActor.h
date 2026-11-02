@@ -49,6 +49,20 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Weapon")
 	void GetBladePoints(FVector& OutStart, FVector& OutEnd) const;
 
+	/**
+	 * Barrel / blade axis of the held mesh in world space: its longest side, pointing away from the hand (the actor's
+	 * origin). The actor's +X without a mesh. What a gun points at, whatever the hand bone's axes are.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	FVector GetBarrelDirection() const;
+
+	/** Far end of the barrel in world space (socket "Muzzle" when the mesh has one). */
+	UFUNCTION(BlueprintPure, Category = "Weapon")
+	FVector GetMuzzleLocation() const;
+
+	/** The barrel axis in the actor's (= attach bone's) space: what the aim pose turns onto the target. */
+	FVector GetBarrelInActorSpace() const;
+
 	/** Called when this weapon lands a hit. */
 	UFUNCTION(BlueprintNativeEvent, Category = "Weapon")
 	void OnWeaponHit(AActor* Victim, const FVector& Location, const FOSFHitInfo& HitInfo);
@@ -67,4 +81,11 @@ public:
 	FRotator FacingOffset = FRotator::ZeroRotator;
 
 	virtual void Tick(float DeltaSeconds) override;
+
+protected:
+	/** Mesh-local barrel axis and muzzle point (CacheBarrel). */
+	FVector BarrelLocal = FVector::ForwardVector;
+	FVector MuzzleLocal = FVector::ZeroVector;
+	bool bBarrelCached = false;
+	void CacheBarrel();
 };

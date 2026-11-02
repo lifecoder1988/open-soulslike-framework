@@ -115,8 +115,10 @@ FVector UOSFAction_Shoot::GetMuzzleLocation(const UOSFWeaponData* InWeapon) cons
 	{
 		if (!WeaponActor->IsHidden())
 		{
-			// Barrel = weapon actor +X, but always in front of the character so close-range shots don't start behind it.
-			const FVector FromActor = WeaponActor->GetActorTransform().TransformPosition(InWeapon ? InWeapon->Ranged.MuzzleOffset : FVector::ZeroVector);
+			// Muzzle = the far end of the held mesh's barrel (actor +X * MuzzleOffset without a mesh), but always in front
+			// of the character so close-range shots don't start behind it.
+			const bool bHasMesh = WeaponActor->Mesh && WeaponActor->Mesh->GetStaticMesh();
+			const FVector FromActor = bHasMesh ? WeaponActor->GetMuzzleLocation() : WeaponActor->GetActorTransform().TransformPosition(InWeapon ? InWeapon->Ranged.MuzzleOffset : FVector::ZeroVector);
 			const FVector Chest = Character->GetActorLocation() + FVector(0.f, 0.f, 40.f);
 			return FVector::DotProduct(FromActor - Chest, Character->GetActorForwardVector()) > 0.f ? FromActor : Chest + Character->GetActorForwardVector() * 40.f;
 		}
