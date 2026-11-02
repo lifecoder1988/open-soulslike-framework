@@ -140,7 +140,10 @@ void AOSFEnemyCharacter::HandleDeath(UOSFCombatComponent* InCombat, AActor* Kill
 	{
 		AI->HandlePawnDeath();
 	}
-	GetWorldTimerManager().SetTimer(CorpseTimer, this, &AOSFEnemyCharacter::HideCorpse, 4.f, false);
+	if (CorpseHideDelay > 0.f)
+	{
+		GetWorldTimerManager().SetTimer(CorpseTimer, this, &AOSFEnemyCharacter::HideCorpse, CorpseHideDelay, false);
+	}
 }
 
 void AOSFEnemyCharacter::HideCorpse()

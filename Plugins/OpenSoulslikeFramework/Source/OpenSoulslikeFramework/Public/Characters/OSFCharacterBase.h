@@ -157,6 +157,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HitFeel")
 	FLinearColor HitFlashColor = FLinearColor(1.f, 0.28f, 0.18f);
 
+	/** Peak "Intensity" of the hit flash. Hits landing while the last flash is still bright (automatic fire) flash at half
+	 *  of it, so a body under sustained fire pulses instead of staying bleached. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HitFeel", meta = (ClampMin = "0"))
+	float HitFlashStrength = 1.f;
+
 	/** Spark material (an emissive one); null = engine basic shape material. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|HitFeel")
 	TObjectPtr<UMaterialInterface> HitSparkMaterial;

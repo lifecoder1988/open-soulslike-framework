@@ -132,6 +132,17 @@ Hook points carry their own assets, nothing is hard-wired:
 Weapons can use a skeletal mesh (`WeaponSkeletalMesh`, e.g. swords with tassels) instead of `StaticMesh`.
 To build your own UMG UI, bind to the same API.
 
+A hit flashes `HitFlashMaterial` over the struck body at `HitFlashStrength`; hits landing while the last flash is still
+bright (automatic fire) flash at about half, so a large body under sustained fire pulses instead of staying bleached.
+A dead enemy's body stays `CorpseHideDelay` seconds (0 keeps it until the next rest), holding the last frame of its
+`DeathClip`.
+
+## Camera
+
+The follow camera passes through characters (their capsules ignore `ECC_Camera`), so a crowd behind the hero doesn't
+jam it onto the hero's back; `AOSFPlayerCharacter` hides any body while the camera is inside it (`CameraHideMargin`).
+World geometry still pushes the camera in.
+
 ## Extension points
 
 - Blueprint subclasses of every actor and component, and data assets for all content

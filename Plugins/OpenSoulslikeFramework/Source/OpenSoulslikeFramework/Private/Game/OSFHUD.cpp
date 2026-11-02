@@ -346,11 +346,11 @@ void AOSFHUD::DrawCompass(AOSFPlayerCharacter* Player)
 	{
 		return;
 	}
-	const float Width = S(640.f);
+	const float Width = S(680.f);
 	const float CX = Canvas->ClipX * 0.5f;
-	const float Y = S(26.f);
+	const float Y = S(24.f);
 	const float Yaw = PC->GetControlRotation().Yaw;
-	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.35f), CX - Width * 0.5f, Y, Width, S(28.f));
+	DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.4f), CX - Width * 0.5f, Y, Width, S(36.f));
 
 	auto ToScreenX = [Yaw, CX, Width](float BearingYaw) -> TOptional<float>
 	{
@@ -368,7 +368,7 @@ void AOSFHUD::DrawCompass(AOSFPlayerCharacter* Player)
 		// UE: +X = north, +Y = east.
 		if (TOptional<float> X = ToScreenX(Index * 90.f))
 		{
-			DrawTextAt(Cardinals[Index], X.GetValue(), Y + S(2.f), FLinearColor::White, 1.f, true);
+			DrawTextAt(Cardinals[Index], X.GetValue(), Y + S(3.f), FLinearColor::White, 1.35f, true);
 		}
 	}
 	for (const TWeakObjectPtr<UOSFCompassMarkerComponent>& Weak : UOSFCompassMarkerComponent::GetAllMarkers())
@@ -385,8 +385,13 @@ void AOSFHUD::DrawCompass(AOSFPlayerCharacter* Player)
 		}
 		if (TOptional<float> X = ToScreenX(To.Rotation().Yaw))
 		{
-			DrawRect(Marker->Color, X.GetValue() - S(4.f), Y + S(30.f), S(8.f), S(8.f));
-			DrawTextAt(FString::Printf(TEXT("%s %dm"), *Marker->Label.ToString(), FMath::RoundToInt(To.Size() / 100.f)), X.GetValue(), Y + S(40.f), Marker->Color, 0.7f, true);
+			// Marker pip on the strip, its label and distance below on a dark plate so it reads over bright skies.
+			DrawRect(Marker->Color, X.GetValue() - S(5.f), Y + S(38.f), S(10.f), S(10.f));
+			const FString Text = FString::Printf(TEXT("%s %dm"), *Marker->Label.ToString(), FMath::RoundToInt(To.Size() / 100.f));
+			float W = 0.f, H = 0.f;
+			Canvas->TextSize(GetHUDFont(false), Text, W, H, 1.05f * Scale, 1.05f * Scale);
+			DrawRect(FLinearColor(0.f, 0.f, 0.f, 0.45f), X.GetValue() - W * 0.5f - S(6.f), Y + S(50.f), W + S(12.f), H + S(4.f));
+			DrawTextAt(Text, X.GetValue(), Y + S(52.f), Marker->Color, 1.05f, true);
 		}
 	}
 }

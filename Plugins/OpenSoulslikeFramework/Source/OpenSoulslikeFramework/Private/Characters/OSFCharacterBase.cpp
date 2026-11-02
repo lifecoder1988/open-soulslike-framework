@@ -40,8 +40,10 @@ AOSFCharacterBase::AOSFCharacterBase(const FObjectInitializer& ObjectInitializer
 	WeaponTrace = CreateDefaultSubobject<UOSFWeaponTraceComponent>(TEXT("WeaponTrace"));
 
 	GetCapsuleComponent()->InitCapsuleSize(40.f, 92.f);
-	// Other bodies push the follow camera in instead of letting it end up inside them (the spring arm ignores its own pawn).
-	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Camera, ECR_Block);
+	// The follow camera passes through bodies (a crowd behind the hero would otherwise jam it onto the hero's back); the
+	// player hides a body while the camera is inside it (AOSFPlayerCharacter::UpdateCameraOverlap).
+	GetCapsuleComponent()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+	GetMesh()->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationRoll = false;
@@ -285,7 +287,7 @@ void AOSFCharacterBase::PlayHitImpact(const FVector& Location, float Scale, bool
 	{
 		return;
 	}
-	OverlayFlash = 1.f;
+	OverlayFlash = OverlayFlash > 0.5f ? FMath::Max(OverlayFlash, 0.7f) : 1.f;
 	UMeshComponent* Body = bProceduralVisuals ? static_cast<UMeshComponent*>(BodyMesh) : static_cast<UMeshComponent*>(GetMesh());
 	if (HitFlashMaterial && Body)
 	{
@@ -294,7 +296,7 @@ void AOSFCharacterBase::PlayHitImpact(const FVector& Location, float Scale, bool
 			FlashMaterial = UMaterialInstanceDynamic::Create(HitFlashMaterial, this);
 		}
 		FlashMaterial->SetVectorParameterValue(TEXT("Color"), HitFlashColor);
-		FlashMaterial->SetScalarParameterValue(TEXT("Intensity"), 1.f);
+		FlashMaterial->SetScalarParameterValue(TEXT("Intensity"), HitFlashStrength * OverlayFlash * OverlayFlash);
 		Body->SetOverlayMaterial(FlashMaterial);
 	}
 }
@@ -312,7 +314,7 @@ void AOSFCharacterBase::UpdateHitFeel(float DeltaSeconds)
 		OverlayFlash = FMath::Max(0.f, OverlayFlash - GetWorld()->GetDeltaSeconds() / 0.18f);
 		if (FlashMaterial)
 		{
-			FlashMaterial->SetScalarParameterValue(TEXT("Intensity"), OverlayFlash * OverlayFlash);
+			FlashMaterial->SetScalarParameterValue(TEXT("Intensity"), HitFlashStrength * OverlayFlash * OverlayFlash);
 		}
 		if (OverlayFlash <= 0.f)
 		{

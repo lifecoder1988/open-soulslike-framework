@@ -72,6 +72,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Input")
 	float LookSensitivity = 1.f;
 
+	/** Other bodies are hidden while the camera is within this distance (cm) of their capsule. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Camera")
+	float CameraHideMargin = 25.f;
+
 	// --- Soulslike flow ---
 
 	UFUNCTION(BlueprintCallable, Category = "OSF")
@@ -124,6 +128,8 @@ protected:
 
 	void AddMappingContext();
 	bool IsInMenu() const;
+	/** Hides other characters (with their weapons) while the camera is inside their capsule. */
+	void UpdateCameraOverlap();
 
 	void InputMove(const FInputActionValue& Value);
 	void InputMoveCompleted(const FInputActionValue& Value);

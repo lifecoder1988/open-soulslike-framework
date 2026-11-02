@@ -24,6 +24,7 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "EngineUtils.h"
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputAction.h"
@@ -378,6 +379,33 @@ void AOSFPlayerCharacter::AddCameraShake(float Amplitude, float Duration)
 	ShakeTime = FMath::Max(ShakeTime, Duration);
 }
 
+void AOSFPlayerCharacter::UpdateCameraOverlap()
+{
+	if (!FollowCamera)
+	{
+		return;
+	}
+	const FVector Eye = FollowCamera->GetComponentLocation();
+	for (TActorIterator<AOSFCharacterBase> It(GetWorld()); It; ++It)
+	{
+		AOSFCharacterBase* Other = *It;
+		USceneComponent* Root = Other->GetRootComponent();
+		if (Other == this || !Root)
+		{
+			continue;
+		}
+		const UCapsuleComponent* Capsule = Other->GetCapsuleComponent();
+		const FVector Offset = Eye - Capsule->GetComponentLocation();
+		const bool bInside = FVector2D(Offset).Size() < Capsule->GetScaledCapsuleRadius() + CameraHideMargin
+			&& FMath::Abs(Offset.Z) < Capsule->GetScaledCapsuleHalfHeight() + CameraHideMargin;
+		// Propagates to the body mesh and the attached weapons; corpses and hidden weapons keep their own hidden flags.
+		if (Root->GetVisibleFlag() == bInside)
+		{
+			Root->SetVisibility(!bInside, true);
+		}
+	}
+}
+
 void AOSFPlayerCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
@@ -394,6 +422,8 @@ void AOSFPlayerCharacter::Tick(float DeltaSeconds)
 			FollowCamera->SetRelativeLocation(CameraBaseLocation);
 		}
 	}
+
+	UpdateCameraOverlap();
 
 	if (bDodgeHeld && !IsSprinting() && DodgePressTime >= 0.0 && GetWorld()->GetTimeSeconds() - DodgePressTime >= SprintHoldThreshold && !ActionComponent->IsBusy())
 	{

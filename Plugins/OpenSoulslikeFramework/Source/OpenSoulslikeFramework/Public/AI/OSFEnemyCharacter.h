@@ -67,6 +67,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Enemy")
 	bool bRespawnOnRest = true;
 
+	/** Seconds the body stays after death before it is hidden; 0 keeps it until the next rest. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Enemy")
+	float CorpseHideDelay = 4.f;
+
 	/** Optional behavior tree. If set the built-in state machine is disabled. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Enemy")
 	TObjectPtr<UBehaviorTree> BehaviorTree;
