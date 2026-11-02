@@ -43,6 +43,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Weapon")
 	virtual void InitializeWeapon(UOSFWeaponData* InData);
 
+	/** MeshTransform authored in the socket bone's space: scale its offset and size with the holder mesh (UOSFWeaponData::bMeshTransformInBoneSpace). */
+	void ApplyBoneSpaceScale(float HolderScale);
+
 	UFUNCTION(BlueprintPure, Category = "Weapon")
 	void GetBladePoints(FVector& OutStart, FVector& OutEnd) const;
 

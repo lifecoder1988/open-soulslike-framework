@@ -280,6 +280,14 @@ public:
 	FOSFAnimClip StanceRunClip;
 
 	/**
+	 * MeshTransform is the weapon mesh's pose in the AttachSocket bone's own space (e.g. a grip authored against the
+	 * holder's skeleton in a content tool): the equipment scales it with the holder mesh, since weapons attach
+	 * without inheriting the mesh scale.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
+	bool bMeshTransformInBoneSpace = false;
+
+	/**
 	 * Held with both hands (long guns): the off-hand weapon stays equipped but sheathed (hidden) while this one is
 	 * in the active right hand, and is drawn only while parrying.
 	 */

@@ -53,6 +53,18 @@ void AOSFWeaponActor::InitializeWeapon(UOSFWeaponData* InData)
 	}
 }
 
+void AOSFWeaponActor::ApplyBoneSpaceScale(float HolderScale)
+{
+	if (!WeaponData)
+	{
+		return;
+	}
+	FTransform Scaled = WeaponData->MeshTransform;
+	Scaled.SetTranslation(Scaled.GetTranslation() * HolderScale);
+	Scaled.SetScale3D(Scaled.GetScale3D() * HolderScale);
+	(WeaponData->WeaponSkeletalMesh ? static_cast<USceneComponent*>(SkeletalMesh) : static_cast<USceneComponent*>(Mesh))->SetRelativeTransform(Scaled);
+}
+
 void AOSFWeaponActor::GetBladePoints(FVector& OutStart, FVector& OutEnd) const
 {
 	if (Mesh && Mesh->GetStaticMesh() && Mesh->DoesSocketExist(TraceStartSocket) && Mesh->DoesSocketExist(TraceEndSocket))

@@ -55,6 +55,8 @@ scale (`GetLocomotionSpeeds`; `WalkSpeed` / `RunSpeed` are only the fallback). A
 around the feet. A weapon's `StanceIdleClip` / `StanceWalkClip` / `StanceRunClip` replace the locomotion while it is in the
 active right hand (`RefreshLocomotionClips`, on equipment changes); `bSheathesOffHand` hides the off-hand weapon for
 two-handed guns and draws it for the parry (`UOSFEquipmentComponent::SetOffHandDrawn`).
+`bMeshTransformInBoneSpace` marks a MeshTransform authored in the attach bone's own space (e.g. a grip baked by a content
+tool against the holder's skeleton): it is scaled with the holder mesh and skips `bAlignWeaponsToOwner`.
 
 ## Hit resolution (`UOSFCombatComponent::ReceiveDamage`)
 
