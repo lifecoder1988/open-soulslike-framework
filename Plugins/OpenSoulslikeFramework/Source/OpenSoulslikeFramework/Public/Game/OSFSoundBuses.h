@@ -56,6 +56,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "OSF|Audio")
 	void EndDuck(EOSFSoundBus Bus);
 
+	/** Makes every audio device know the buses (classes made with NewObject are not registered by PostLoad). */
+	void RegisterWithAudioDevices();
+
 private:
 	UPROPERTY(Transient)
 	TMap<EOSFSoundBus, TObjectPtr<USoundClass>> Buses;

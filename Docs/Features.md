@@ -43,6 +43,7 @@ Feature list of the commercial Soulslike Framework (from its forum post) compare
 | Imported skeletal characters | ✅ | `AOSFCharacterBase::SetupSkeletalMesh` (height, feet, yaw), per-skeleton hand sockets, weapons aligned to the owner for unknown bone axes, static-mesh bodies for unrigged models |
 | Quests | ✅ | `UOSFQuestData` (kill / flag / progress / item objectives, rewards) tracked through progress flags and counters, so quests save with the game; HUD tracker |
 | Footsteps | ✅ | `AOSFCharacterBase::FootstepSound`: one sound per stride, stride and volume by ground speed |
+| Modular skeletal meshes | ✅ | `AOSFCharacterBase::AddMeshPart`: head / hands / legs parts of a character sold in pieces follow the main mesh in leader pose (one clip drives the body) |
 | Directional hit reactions | ✅ | `AOSFCharacterBase::HitReactClips` / `StaggerClips` (`FOSFDirectionalClips`: front / back / left / right): the flinch or the heavy stagger that matches the side the blow came from; the procedural stagger leans away from it (`GetLastHitFrom`) |
 | Sound buses | ✅ | `UOSFSoundBuses` (game instance subsystem): SFX / Music / Voice / UI classes under Master made at startup, `Assign`, `SetBusVolume`, `Duck` (a timed sound mix, e.g. music under dialogue) |
 | Autopilot perf line | ✅ | `[AutoPilot] perf: … fps avg, 1% low, max ms, mem` every 15 s of a run, for cooked-build budgets |

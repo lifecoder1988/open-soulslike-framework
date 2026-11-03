@@ -189,11 +189,12 @@ void UOSFAutoPilotComponent::TickPerf(float DeltaTime)
 	Sorted.Sort();
 	double Sum = 0.0;
 	for (float T : Sorted) { Sum += T; }
-	const float Avg = static_cast<float>(Sum / Sorted.Num());
+	// Average over wall time (ticks stop while the world is paused, so the mean delta would flatter the result).
+	const double Elapsed = FMath::Max(Now - LastPerfReport, 0.001);
 	const float Worst1 = Sorted[FMath::Clamp(static_cast<int32>(Sorted.Num() * 0.99f), 0, Sorted.Num() - 1)];
 	const FPlatformMemoryStats Mem = FPlatformMemory::GetStats();
-	Milestone(FString::Printf(TEXT("perf: %.0f fps avg, 1%% low %.0f fps, %.1f ms max, %d frames, mem %.0f MB (peak %.0f MB)"),
-		1.f / FMath::Max(Avg, 0.0001f), 1.f / FMath::Max(Worst1, 0.0001f), Sorted.Last() * 1000.f, Sorted.Num(),
+	Milestone(FString::Printf(TEXT("perf: %.0f fps avg, 1%% low %.0f fps, %.1f ms max, %d frames in %.0f s (ticked %.0f s), mem %.0f MB (peak %.0f MB)"),
+		Sorted.Num() / Elapsed, 1.f / FMath::Max(Worst1, 0.0001f), Sorted.Last() * 1000.f, Sorted.Num(), Elapsed, Sum,
 		Mem.UsedPhysical / (1024.0 * 1024.0), Mem.PeakUsedPhysical / (1024.0 * 1024.0)));
 	FrameTimes.Reset();
 	LastPerfReport = Now;

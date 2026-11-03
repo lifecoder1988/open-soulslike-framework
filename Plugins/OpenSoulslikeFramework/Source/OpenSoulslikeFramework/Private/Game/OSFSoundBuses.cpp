@@ -5,6 +5,8 @@
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
+#include "AudioDevice.h"
+#include "AudioDeviceManager.h"
 #include "Sound/SoundBase.h"
 #include "Sound/SoundClass.h"
 #include "Sound/SoundMix.h"
@@ -37,7 +39,30 @@ UOSFSoundBuses* UOSFSoundBuses::Get(const UObject* WorldContext)
 {
 	const UWorld* World = WorldContext ? WorldContext->GetWorld() : nullptr;
 	const UGameInstance* Instance = World ? World->GetGameInstance() : nullptr;
-	return Instance ? Instance->GetSubsystem<UOSFSoundBuses>() : nullptr;
+	UOSFSoundBuses* Buses = Instance ? Instance->GetSubsystem<UOSFSoundBuses>() : nullptr;
+	if (Buses)
+	{
+		Buses->RegisterWithAudioDevices();
+	}
+	return Buses;
+}
+
+void UOSFSoundBuses::RegisterWithAudioDevices()
+{
+	// A class the audio device has not seen plays with a warning per frame and no class properties.
+	if (FAudioDeviceManager* Manager = FAudioDeviceManager::Get())
+	{
+		Manager->IterateOverAllDevices([this](Audio::FDeviceId, FAudioDevice* Device)
+		{
+			for (const TPair<EOSFSoundBus, TObjectPtr<USoundClass>>& Pair : Buses)
+			{
+				if (Pair.Value)
+				{
+					Device->RegisterSoundClass(Pair.Value);
+				}
+			}
+		});
+	}
 }
 
 USoundClass* UOSFSoundBuses::GetBus(EOSFSoundBus Bus) const
