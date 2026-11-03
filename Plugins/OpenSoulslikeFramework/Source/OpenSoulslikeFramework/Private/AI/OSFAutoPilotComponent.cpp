@@ -150,6 +150,7 @@ void UOSFAutoPilotComponent::ResetTaskState()
 	TaskStartTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0;
 	bTaskInteracted = false;
 	TaskInteractTime = 0.0;
+	ClearStallSince = 0.0;
 	ApproachShrink = 0.f;
 	EscapeUntil = 0.0;
 	LastProgressTime = FPlatformTime::Seconds();
@@ -338,6 +339,12 @@ void UOSFAutoPilotComponent::TickTask(float DeltaTime)
 	FOSFAutoTask& Task = Tasks[TaskIndex];
 	const double Now = GetWorld()->GetTimeSeconds();
 
+	if (Task.DoneWhen && Task.DoneWhen(this))
+	{
+		Player->SetSprinting(false);
+		NextTask();
+		return;
+	}
 	if (TaskTimeout > 0.f && (Task.Type == EOSFAutoTaskType::MoveTo || Task.Type == EOSFAutoTaskType::Interact) && Now - TaskStartTime > TaskTimeout && !bTaskInteracted)
 	{
 		UE_LOG(LogOSF, Warning, TEXT("[AutoPilot] gave up on '%s' after %.0f s"), *Task.Label, TaskTimeout);
@@ -361,6 +368,7 @@ void UOSFAutoPilotComponent::TickTask(float DeltaTime)
 	}
 	if (TickCombat(DeltaTime))
 	{
+		ClearStallSince = 0.0;
 		return;
 	}
 	Player->SetDesiredMoveDirection(FVector::ZeroVector);
@@ -427,6 +435,24 @@ void UOSFAutoPilotComponent::TickTask(float DeltaTime)
 		GatherHostiles(Task.Location, Task.Radius, Hostiles);
 		if (Hostiles.Num() == 0)
 		{
+			Player->SetSprinting(false);
+			NextTask();
+			break;
+		}
+		// Hostiles left that no fight reaches (behind the arena wall, under the floor): not worth the rest of the run.
+		if (ClearStallSince <= 0.0)
+		{
+			ClearStallSince = Now;
+		}
+		else if (ClearAreaTimeout > 0.f && Now - ClearStallSince > ClearAreaTimeout)
+		{
+			FString Left;
+			for (int32 Index = 0; Index < Hostiles.Num() && Index < 4; ++Index)
+			{
+				Left += FString::Printf(TEXT("%s%s at %s (%.0f cm away)"), Index ? TEXT(", ") : TEXT(""), *Hostiles[Index]->GetName(), *Hostiles[Index]->GetActorLocation().ToCompactString(), FVector::Dist2D(Hostiles[Index]->GetActorLocation(), Player->GetActorLocation()));
+			}
+			UE_LOG(LogOSF, Warning, TEXT("[AutoPilot] gave up on '%s' after %.0f s without a fight; left: %s"), *Task.Label, ClearAreaTimeout, *Left);
+			Milestone(FString::Printf(TEXT("skipped: %s"), *Task.Label));
 			Player->SetSprinting(false);
 			NextTask();
 			break;

@@ -67,6 +67,12 @@ struct OPENSOULSLIKEFRAMEWORK_API FOSFAutoTask
 	/** Custom steps: return true when done. */
 	TFunction<bool(UOSFAutoPilotComponent*)> Custom;
 
+	/**
+	 * Any step: the step is over as soon as this returns true, whatever its own state (a fog gate the player walked
+	 * through instead of interacting with: done when the boss fight is on).
+	 */
+	TFunction<bool(UOSFAutoPilotComponent*)> DoneWhen;
+
 	/** MoveTo / Interact: finds the actor when Actor is unset (a chest that appears later); null = keep waiting. */
 	TFunction<AActor*(UOSFAutoPilotComponent*)> ResolveActor;
 
@@ -150,6 +156,13 @@ public:
 	/** A MoveTo / Interact step still unfinished after this many seconds is skipped with a warning (0 = never). */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|AutoPilot")
 	float TaskTimeout = 75.f;
+
+	/**
+	 * A ClearArea step with hostiles left in the area that the pilot has not fought for this many seconds is skipped
+	 * with a warning naming them (0 = never): a summoned enemy that landed outside the arena wall would be chased forever.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|AutoPilot")
+	float ClearAreaTimeout = 60.f;
 
 	// --- Script ---
 
@@ -248,6 +261,7 @@ protected:
 	void TickPerf(float DeltaTime);
 	bool bTaskInteracted = false;
 	double TaskInteractTime = 0.0;
+	double ClearStallSince = 0.0;	// ClearArea: first tick without a fight (0 = fighting or just started)
 	float ApproachShrink = 0.f;
 	// Steering
 	FVector LastProgressLocation = FVector::ZeroVector;

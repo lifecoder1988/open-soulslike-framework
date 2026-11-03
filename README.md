@@ -63,7 +63,8 @@ OSF is an independent implementation written from scratch: no code or assets fro
 - Debug console commands (`OSFStatus`, `OSFAction`, `OSFGoTo`, `OSFInteract`, `OSFGod`, `OSFSave`…) make every system scriptable
 - **Autopilot** (`UOSFAutoPilotComponent`): plays a scripted route through the player's own input paths - walks, fights
   (lock-on, spacing, shooting or swinging, rolls out of wind-ups, gun counters on perilous attacks, heals), rests, talks,
-  opens doors - for recorded playthroughs and end-to-end playtests without a human at the controls (`OSFAutoPilot start`)
+  opens doors - for recorded playthroughs and end-to-end playtests without a human at the controls (`OSFAutoPilot start`).
+  Steps that stall are skipped with a warning (a timeout per step, a no-fight timeout for area clears) so a run always ends
 - 13 automation tests, plus an MCP-driven end-to-end walkthrough
 
 ## Requirements
