@@ -57,6 +57,8 @@ OSF is an independent implementation written from scratch: no code or assets fro
   **Footsteps** play per stride from the character's speed (`FootstepSound`, `FootstepStride`).
   **Ladders** play `ClimbClip` / `ClimbDownClip` (looping, paused while hanging still, rate from the ladder's `ClimbSpeed`).
   **Hit reactions** pick the clip for the side the blow came from (`HitReactClips`, `StaggerClips` for a broken stance).
+  **Movement set**: a sprint cycle above the run, a dodge roll / backstep retimed to the dodge's i-frames, a held guard pose and a
+  jump clip; each weapon can bring its own stance versions (`StanceSprint/Dodge/Backstep/GuardClip`) next to its idle / walk / run.
 - **Sound buses**: `UOSFSoundBuses` makes SFX / Music / Voice / UI sound classes at startup, so games route sounds and duck
   one bus under another (music under dialogue) without sound class or mix assets.
 - **Runtime translations** of the framework UI from a JSON table (CJK glyphs supported by the default HUD font).

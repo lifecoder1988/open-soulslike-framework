@@ -462,14 +462,60 @@ void AOSFCharacterBase::RefreshLocomotionClips()
 	const FOSFAnimClip NewIdle = Pick(IdleClip, Weapon ? &Weapon->StanceIdleClip : nullptr);
 	const FOSFAnimClip NewWalk = Pick(WalkClip, Weapon ? &Weapon->StanceWalkClip : nullptr);
 	const FOSFAnimClip NewRun = Pick(RunClip, Weapon ? &Weapon->StanceRunClip : nullptr);
-	if (AppliedLocomotion[0] == NewIdle.Sequence && AppliedLocomotion[1] == NewWalk.Sequence && AppliedLocomotion[2] == NewRun.Sequence)
+	const FOSFAnimClip NewSprint = Pick(SprintClip, Weapon ? &Weapon->StanceSprintClip : nullptr);
+	if (AppliedLocomotion[0] == NewIdle.Sequence && AppliedLocomotion[1] == NewWalk.Sequence && AppliedLocomotion[2] == NewRun.Sequence && AppliedLocomotion[3] == NewSprint.Sequence)
 	{
 		return;
 	}
 	AppliedLocomotion[0] = NewIdle.Sequence;
 	AppliedLocomotion[1] = NewWalk.Sequence;
 	AppliedLocomotion[2] = NewRun.Sequence;
-	ClipAnim->SetLocomotion(NewIdle, NewWalk, NewRun);
+	AppliedLocomotion[3] = NewSprint.Sequence;
+	ClipAnim->SetLocomotion(NewIdle, NewWalk, NewRun, NewSprint);
+}
+
+namespace
+{
+	const FOSFAnimClip& PickStanceClip(const AOSFCharacterBase& Character, const FOSFAnimClip& Own, const FOSFAnimClip* Stance)
+	{
+		const USkeletalMesh* Mesh = Character.GetMesh() ? Character.GetMesh()->GetSkeletalMeshAsset() : nullptr;
+		const USkeleton* MeshSkeleton = Mesh ? Mesh->GetSkeleton() : nullptr;
+		return (Stance && Stance->IsValid() && Stance->Sequence->GetSkeleton() == MeshSkeleton) ? *Stance : Own;
+	}
+}
+
+const FOSFAnimClip& AOSFCharacterBase::GetDodgeClip(bool bBackstep) const
+{
+	const UOSFWeaponData* Weapon = Equipment ? Equipment->GetEquippedWeapon(true) : nullptr;
+	return bBackstep
+		? PickStanceClip(*this, BackstepClip.IsValid() ? BackstepClip : DodgeClip, Weapon ? &Weapon->StanceBackstepClip : nullptr)
+		: PickStanceClip(*this, DodgeClip, Weapon ? &Weapon->StanceDodgeClip : nullptr);
+}
+
+const FOSFAnimClip& AOSFCharacterBase::GetGuardClip() const
+{
+	const UOSFWeaponData* Weapon = Equipment ? Equipment->GetEquippedWeapon(true) : nullptr;
+	return PickStanceClip(*this, GuardClip, Weapon ? &Weapon->StanceGuardClip : nullptr);
+}
+
+void AOSFCharacterBase::OnJumped_Implementation()
+{
+	Super::OnJumped_Implementation();
+	UOSFClipAnimInstance* ClipAnim = GetClipAnimInstance();
+	if (ClipAnim && JumpClip.IsValid() && !ClipAnim->IsPlayingActionClip())
+	{
+		ClipAnim->PlayActionClip(JumpClip, -1.f, true);
+	}
+}
+
+void AOSFCharacterBase::Landed(const FHitResult& Hit)
+{
+	Super::Landed(Hit);
+	UOSFClipAnimInstance* ClipAnim = GetClipAnimInstance();
+	if (ClipAnim && JumpClip.IsValid() && ClipAnim->IsPlayingSequence(JumpClip.Sequence))
+	{
+		ClipAnim->StopActionClip(0.15f);
+	}
 }
 
 USkeletalMeshComponent* AOSFCharacterBase::AddMeshPart(USkeletalMesh* Part)

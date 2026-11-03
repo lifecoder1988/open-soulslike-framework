@@ -158,6 +158,8 @@ protected:
 	virtual void OnWindowChanged(EOSFActionWindow Window, bool bOpen) override;
 	virtual UAnimMontage* GetMontageToPlay() const override { return bBackstep ? BackstepMontage : RollMontage; }
 	virtual const FOSFActionTiming& GetTiming() const override { return CurrentTiming; }
+	/** The character's (or its weapon's) roll / backstep clip; the action's own Clip when there is none. */
+	virtual const FOSFAnimClip* GetClipToPlay() const override;
 
 	FOSFActionTiming CurrentTiming;
 	FVector Direction = FVector::ForwardVector;
@@ -180,6 +182,10 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Guard")
 	bool IsPerfectGuardWindow() const { return IsRunning() && GetElapsed() <= PerfectGuardWindow; }
+
+protected:
+	/** The character's (or its weapon's) guard pose, held while the guard lasts. */
+	virtual const FOSFAnimClip* GetClipToPlay() const override;
 };
 
 /** Parry: a short window that turns an incoming parryable hit into a riposte opportunity. */

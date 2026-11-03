@@ -116,6 +116,36 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
 	FOSFAnimClip RunClip;
 
+	/** Optional sprint cycle above the run (a weapon's StanceSprintClip replaces it). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	FOSFAnimClip SprintClip;
+
+	/**
+	 * Dodge roll (the character turns into the roll direction first, so one forward roll serves every direction) and the
+	 * backstep without input; retimed to the dodge's timing so the i-frames stay as tuned. A weapon's StanceDodgeClip /
+	 * StanceBackstepClip replace them.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	FOSFAnimClip DodgeClip;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	FOSFAnimClip BackstepClip;
+
+	/** Guard pose held while guarding (a loop); a weapon's StanceGuardClip replaces it. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	FOSFAnimClip GuardClip;
+
+	/** Jump: plays on take-off, holds its last frame in the air, blends out on landing. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	FOSFAnimClip JumpClip;
+
+	/** The dodge / guard clip in use: the active weapon's stance clip when it fits this skeleton, else the character's own. */
+	const FOSFAnimClip& GetDodgeClip(bool bBackstep) const;
+	const FOSFAnimClip& GetGuardClip() const;
+
+	virtual void OnJumped_Implementation() override;
+	virtual void Landed(const FHitResult& Hit) override;
+
 	/** Optional hit reaction clip (stagger / stance break) when no directional clip fits. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
 	FOSFAnimClip HitReactClip;
@@ -404,7 +434,7 @@ protected:
 	/** The death clip is playing: no procedural fall on top. */
 	bool bDeathClipPlaying = false;
 	/** Locomotion clips last handed to the anim instance (RefreshLocomotionClips skips unchanged sets). */
-	const UAnimSequence* AppliedLocomotion[3] = { nullptr, nullptr, nullptr };
+	const UAnimSequence* AppliedLocomotion[4] = { nullptr, nullptr, nullptr, nullptr };
 	FRotator SwingOffset = FRotator::ZeroRotator;
 	FTransform MeshBaseTransform;
 	bool bMeshBaseCaptured = false;

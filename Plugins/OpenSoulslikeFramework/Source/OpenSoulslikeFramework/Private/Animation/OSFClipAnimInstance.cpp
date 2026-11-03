@@ -24,18 +24,31 @@ float FOSFAnimClip::GetDuration() const
 
 // --- Game thread ------------------------------------------------------------------
 
-void UOSFClipAnimInstance::SetLocomotion(const FOSFAnimClip& InIdle, const FOSFAnimClip& InWalk, const FOSFAnimClip& InRun)
+void UOSFClipAnimInstance::SetLocomotion(const FOSFAnimClip& InIdle, const FOSFAnimClip& InWalk, const FOSFAnimClip& InRun, const FOSFAnimClip& InSprint)
 {
 	Idle = InIdle;
 	Walk = InWalk;
 	// A "run" that is the walk clip again would blend the cycle with itself at another rate (scrambled legs):
 	// the walk alone speeds up instead.
 	Run = (InRun.Sequence == InWalk.Sequence) ? FOSFAnimClip() : InRun;
+	Sprint = (InSprint.Sequence == Run.Sequence || InSprint.Sequence == InWalk.Sequence) ? FOSFAnimClip() : InSprint;
 	IdleTime = Idle.Start;
 	WalkTime = Walk.Start;
 	RunTime = Run.Start;
+	SprintTime = Sprint.Start;
 	WalkStride = bMeasureStrideSpeed ? MeasureStrideSpeed(Walk) : 0.f;
 	RunStride = bMeasureStrideSpeed ? MeasureStrideSpeed(Run) : 0.f;
+	SprintStride = bMeasureStrideSpeed ? MeasureStrideSpeed(Sprint) : 0.f;
+}
+
+float UOSFClipAnimInstance::GetSprintGroundSpeed() const
+{
+	const USkeletalMeshComponent* Component = GetSkelMeshComponent();
+	const float Scale = Component ? FMath::Abs(Component->GetComponentScale().X) : 1.f;
+	const float RunGround = GetLocomotionSpeeds().Y;
+	const float SprintGround = SprintStride > 0.f ? SprintStride * Scale : SprintSpeed;
+	// A sprint cycle no faster than the run keeps a blend range above it, so speed still picks a rate.
+	return FMath::Max(SprintGround, RunGround * 1.25f);
 }
 
 FVector2D UOSFClipAnimInstance::GetLocomotionSpeeds() const
@@ -126,6 +139,10 @@ void UOSFClipAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 	const FVector2D Ground = GetLocomotionSpeeds();
 	WalkTime = Advance(Walk, WalkTime, DeltaSeconds, FMath::Clamp(Speed / FMath::Max(Ground.X, 1.f), 0.35f, 2.5f));
 	RunTime = Advance(Run, RunTime, DeltaSeconds, FMath::Clamp(Speed / FMath::Max(Ground.Y, 1.f), 0.5f, 2.f));
+	if (Sprint.IsValid())
+	{
+		SprintTime = Advance(Sprint, SprintTime, DeltaSeconds, FMath::Clamp(Speed / FMath::Max(GetSprintGroundSpeed(), 1.f), 0.5f, 1.6f));
+	}
 
 	if (ActionClip.IsValid())
 	{
@@ -162,9 +179,14 @@ TArray<FOSFClipSample, TInlineAllocator<4>> UOSFClipAnimInstance::GetLocomotionS
 	{
 		Out.Add({ Walk.Sequence, WalkTime, WalkAlpha * (1.f - RunAlpha) });
 	}
-	if (Run.IsValid() && RunAlpha > 0.f)
+	const float SprintAlpha = (Sprint.IsValid() && Run.IsValid()) ? FMath::Clamp((Speed - Ground.Y) / FMath::Max(GetSprintGroundSpeed() - Ground.Y, 1.f), 0.f, 1.f) : 0.f;
+	if (Run.IsValid() && RunAlpha > 0.f && SprintAlpha < 1.f)
 	{
-		Out.Add({ Run.Sequence, RunTime, WalkAlpha * RunAlpha });
+		Out.Add({ Run.Sequence, RunTime, WalkAlpha * RunAlpha * (1.f - SprintAlpha) });
+	}
+	if (SprintAlpha > 0.f)
+	{
+		Out.Add({ Sprint.Sequence, SprintTime, WalkAlpha * RunAlpha * SprintAlpha });
 	}
 	return Out;
 }

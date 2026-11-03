@@ -364,6 +364,20 @@ UOSFAction_Dodge::UOSFAction_Dodge()
 	Timing.Active = 0.4f;
 	Timing.Recovery = 0.3f;
 	Timing.CancelWindowStart = 0.35f;
+	bFitClipToTiming = true;	// the roll clip follows the dodge's timing, not the other way round
+}
+
+const FOSFAnimClip* UOSFAction_Dodge::GetClipToPlay() const
+{
+	if (const AOSFCharacterBase* Character = Cast<AOSFCharacterBase>(GetCharacter()))
+	{
+		const FOSFAnimClip& Stance = Character->GetDodgeClip(bBackstep);
+		if (Stance.IsValid())
+		{
+			return &Stance;
+		}
+	}
+	return Super::GetClipToPlay();
 }
 
 bool UOSFAction_Dodge::CanActivate_Implementation() const
@@ -470,6 +484,19 @@ UOSFAction_Guard::UOSFAction_Guard()
 	Timing.Active = 0.f;
 	Timing.Recovery = 0.f;
 	Timing.CancelWindowStart = 0.f;
+}
+
+const FOSFAnimClip* UOSFAction_Guard::GetClipToPlay() const
+{
+	if (const AOSFCharacterBase* Character = Cast<AOSFCharacterBase>(GetCharacter()))
+	{
+		const FOSFAnimClip& Stance = Character->GetGuardClip();
+		if (Stance.IsValid())
+		{
+			return &Stance;
+		}
+	}
+	return Super::GetClipToPlay();
 }
 
 UOSFAction_Parry::UOSFAction_Parry()

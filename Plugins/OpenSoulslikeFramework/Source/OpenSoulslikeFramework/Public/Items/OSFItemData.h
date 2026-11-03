@@ -279,6 +279,19 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
 	FOSFAnimClip StanceRunClip;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
+	FOSFAnimClip StanceSprintClip;
+
+	/** Dodge roll / backstep / guard pose with this weapon out (same rules as the stance locomotion). */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
+	FOSFAnimClip StanceDodgeClip;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
+	FOSFAnimClip StanceBackstepClip;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
+	FOSFAnimClip StanceGuardClip;
+
 	/**
 	 * MeshTransform is the weapon mesh's pose in the AttachSocket bone's own space (e.g. a grip authored against the
 	 * holder's skeleton in a content tool): the equipment scales it with the holder mesh, since weapons attach

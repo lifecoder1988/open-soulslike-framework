@@ -70,6 +70,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Clips")
 	FOSFAnimClip Run;
 
+	/** Optional sprint cycle, blended in above the run's ground speed (empty: the run speeds up instead). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Clips")
+	FOSFAnimClip Sprint;
+
+	/** Ground speed at which Sprint is fully blended in and plays at its own rate (measured from the clip when it can be). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Clips")
+	float SprintSpeed = 800.f;
+
 	/** Ground speed (cm/s) at which Walk plays at its own rate; also the idle -> walk blend end. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Clips")
 	float WalkSpeed = 220.f;
@@ -165,7 +173,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "OSF|Clips")
 	bool IsPlayingActionClip() const { return ActionClip.IsValid() && ActionWeightTarget > 0.f; }
 
-	void SetLocomotion(const FOSFAnimClip& InIdle, const FOSFAnimClip& InWalk, const FOSFAnimClip& InRun);
+	void SetLocomotion(const FOSFAnimClip& InIdle, const FOSFAnimClip& InWalk, const FOSFAnimClip& InRun, const FOSFAnimClip& InSprint = FOSFAnimClip());
+
+	/** Ground speed at which the sprint cycle plays at its own rate (above the run's). */
+	float GetSprintGroundSpeed() const;
 
 	// Game-thread state read by the proxy.
 	TArray<FOSFClipSample, TInlineAllocator<4>> GetLocomotionSamples() const;
@@ -198,9 +209,11 @@ protected:
 	float IdleTime = 0.f;
 	float WalkTime = 0.f;
 	float RunTime = 0.f;
+	float SprintTime = 0.f;
 	float Speed = 0.f;
 
 	/** MeasureStrideSpeed of Walk / Run (unscaled), 0 = not measured. */
 	float WalkStride = 0.f;
 	float RunStride = 0.f;
+	float SprintStride = 0.f;
 };
