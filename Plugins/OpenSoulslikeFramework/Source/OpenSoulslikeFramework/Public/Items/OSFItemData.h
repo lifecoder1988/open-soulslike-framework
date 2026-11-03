@@ -301,6 +301,13 @@ public:
 	bool bMeshTransformInBoneSpace = false;
 
 	/**
+	 * Keep this weapon aligned to the holder's facing every frame (as UOSFEquipmentComponent::bAlignWeaponsToOwner does
+	 * for every weapon): a long gun carried level in front of the body, while blades on the same holder follow the hand bone.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Weapon|Visual")
+	bool bAlignToOwnerFacing = false;
+
+	/**
 	 * Held with both hands (long guns): the off-hand weapon stays equipped but sheathed (hidden) while this one is
 	 * in the active right hand, and is drawn only while parrying.
 	 */

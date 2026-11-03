@@ -424,7 +424,7 @@ AOSFWeaponActor* UOSFEquipmentComponent::SpawnWeaponActor(UOSFWeaponData* Weapon
 			Actor->ApplyBoneSpaceScale(Mesh->GetComponentScale().GetAbsMax());
 		}
 		// A bone-space grip already knows the hand's axes: only grips without one fall back to facing alignment.
-		if (bAlignWeaponsToOwner && !Weapon->bMeshTransformInBoneSpace)
+		if ((bAlignWeaponsToOwner || Weapon->bAlignToOwnerFacing) && !Weapon->bMeshTransformInBoneSpace)
 		{
 			Actor->bAlignToOwnerFacing = true;
 			Actor->FacingOffset = bRightHand ? RightHandFacingOffset : LeftHandFacingOffset;
