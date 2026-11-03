@@ -440,6 +440,46 @@ struct OPENSOULSLIKEFRAMEWORK_API FOSFHitInfo
 	float NegatedFraction = 0.f;
 };
 
+/** One clip per direction a hit can come from (actor space). Unset directions fall back to the nearest set one. */
+USTRUCT(BlueprintType)
+struct OPENSOULSLIKEFRAMEWORK_API FOSFDirectionalClips
+{
+	GENERATED_BODY()
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
+	FOSFAnimClip Front;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
+	FOSFAnimClip Back;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
+	FOSFAnimClip Left;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF")
+	FOSFAnimClip Right;
+
+	bool IsValid() const { return Front.IsValid() || Back.IsValid() || Left.IsValid() || Right.IsValid(); }
+
+	/** The clip for a blow from HitFrom (unit vector in actor space: +X in front, +Y on the right). */
+	const FOSFAnimClip& Pick(const FVector& HitFrom) const
+	{
+		const bool bAlongX = FMath::Abs(HitFrom.X) >= FMath::Abs(HitFrom.Y);
+		const FOSFAnimClip& Wanted = bAlongX ? (HitFrom.X >= 0.f ? Front : Back) : (HitFrom.Y >= 0.f ? Right : Left);
+		if (Wanted.IsValid())
+		{
+			return Wanted;
+		}
+		for (const FOSFAnimClip* Clip : { &Front, &Back, &Left, &Right })
+		{
+			if (Clip->IsValid())
+			{
+				return *Clip;
+			}
+		}
+		return Front;
+	}
+};
+
 /** Item + count pair (inventory entries, loot, recipes, rewards). */
 USTRUCT(BlueprintType)
 struct OPENSOULSLIKEFRAMEWORK_API FOSFItemStack

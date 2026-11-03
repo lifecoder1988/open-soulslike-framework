@@ -171,6 +171,34 @@ void UOSFAutoPilotComponent::NextTask()
 	}
 }
 
+void UOSFAutoPilotComponent::TickPerf(float DeltaTime)
+{
+	// Frame rate and memory along the run: the budget line for a cooked build (an editor PIE frame carries the editor).
+	FrameTimes.Add(DeltaTime);
+	const double Now = FPlatformTime::Seconds();
+	if (LastPerfReport <= 0.0)
+	{
+		LastPerfReport = Now;
+		return;
+	}
+	if (Now - LastPerfReport < PerfReportInterval || FrameTimes.Num() < 10)
+	{
+		return;
+	}
+	TArray<float> Sorted = FrameTimes;
+	Sorted.Sort();
+	double Sum = 0.0;
+	for (float T : Sorted) { Sum += T; }
+	const float Avg = static_cast<float>(Sum / Sorted.Num());
+	const float Worst1 = Sorted[FMath::Clamp(static_cast<int32>(Sorted.Num() * 0.99f), 0, Sorted.Num() - 1)];
+	const FPlatformMemoryStats Mem = FPlatformMemory::GetStats();
+	Milestone(FString::Printf(TEXT("perf: %.0f fps avg, 1%% low %.0f fps, %.1f ms max, %d frames, mem %.0f MB (peak %.0f MB)"),
+		1.f / FMath::Max(Avg, 0.0001f), 1.f / FMath::Max(Worst1, 0.0001f), Sorted.Last() * 1000.f, Sorted.Num(),
+		Mem.UsedPhysical / (1024.0 * 1024.0), Mem.PeakUsedPhysical / (1024.0 * 1024.0)));
+	FrameTimes.Reset();
+	LastPerfReport = Now;
+}
+
 void UOSFAutoPilotComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
@@ -178,6 +206,7 @@ void UOSFAutoPilotComponent::TickComponent(float DeltaTime, ELevelTick TickType,
 	{
 		return;
 	}
+	TickPerf(DeltaTime);
 	AOSFPlayerCharacter* Player = GetPlayer();
 	AOSFPlayerController* PC = GetPC();
 	if (!Player || !PC)

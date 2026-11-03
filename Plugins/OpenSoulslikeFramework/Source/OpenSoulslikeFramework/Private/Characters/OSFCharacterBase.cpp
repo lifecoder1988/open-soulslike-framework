@@ -472,6 +472,38 @@ void AOSFCharacterBase::RefreshLocomotionClips()
 	ClipAnim->SetLocomotion(NewIdle, NewWalk, NewRun);
 }
 
+USkeletalMeshComponent* AOSFCharacterBase::AddMeshPart(USkeletalMesh* Part)
+{
+	USkeletalMeshComponent* Leader = GetMesh();
+	if (!Part || !Leader)
+	{
+		return nullptr;
+	}
+	USkeletalMeshComponent* Component = NewObject<USkeletalMeshComponent>(this, NAME_None, RF_Transient);
+	Component->SetSkeletalMeshAsset(Part);
+	Component->SetupAttachment(Leader);
+	Component->SetRelativeTransform(FTransform::Identity);	// same origin and scale as the leader
+	Component->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Component->SetLeaderPoseComponent(Leader);
+	Component->bUseAttachParentBound = true;
+	Component->RegisterComponent();
+	MeshParts.Add(Component);
+	return Component;
+}
+
+TArray<USkeletalMeshComponent*> AOSFCharacterBase::GetMeshParts() const
+{
+	TArray<USkeletalMeshComponent*> Parts;
+	for (const TObjectPtr<USkeletalMeshComponent>& Part : MeshParts)
+	{
+		if (Part)
+		{
+			Parts.Add(Part);
+		}
+	}
+	return Parts;
+}
+
 void AOSFCharacterBase::SetupSkeletalMesh(USkeletalMesh* NewMesh, float TargetHeight, float YawOffset)
 {
 	USkeletalMeshComponent* SkeletalMesh = GetMesh();
@@ -522,8 +554,9 @@ void AOSFCharacterBase::UpdateSkeletalPose(float DeltaSeconds)
 	}
 	else if (HasStateTag(OSFTags::State_Staggered))
 	{
+		// Thrown away from the blow: back from a hit in front, forward from behind, sideways from the flank.
 		const float Time = static_cast<float>(GetWorld()->GetTimeSeconds());
-		Lean = FRotator(12.f, 0.f, FMath::Sin(Time * 40.f) * 4.f);
+		Lean = FRotator(12.f * LastHitFrom.X, 0.f, -12.f * LastHitFrom.Y + FMath::Sin(Time * 40.f) * 4.f);
 	}
 	else if (HasStateTag(OSFTags::State_Dodging))
 	{
@@ -688,6 +721,15 @@ void AOSFCharacterBase::HandleDeath(UOSFCombatComponent* InCombat, AActor* Kille
 
 void AOSFCharacterBase::HandleDamaged(UOSFCombatComponent* InCombat, const FOSFHitInfo& HitInfo)
 {
+	// Where it came from, for the directional flinch and the lean of the procedural stagger.
+	if (HitInfo.Instigator && HitInfo.Instigator != this)
+	{
+		const FVector From = (HitInfo.Instigator->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
+		if (!From.IsNearlyZero())
+		{
+			LastHitFrom = GetActorRotation().UnrotateVector(From);
+		}
+	}
 	if (HitInfo.Result == EOSFHitResult::Hit || HitInfo.Result == EOSFHitResult::Killed || HitInfo.Result == EOSFHitResult::GuardBroken)
 	{
 		HitFlash = 0.8f;
@@ -708,7 +750,10 @@ void AOSFCharacterBase::HandleStateTagChanged(FGameplayTag Tag, bool bAdded)
 	{
 		if (UOSFClipAnimInstance* ClipAnim = GetClipAnimInstance())
 		{
-			HitReactClip.IsValid() ? ClipAnim->PlayActionClip(HitReactClip) : ClipAnim->StopActionClip(0.1f);
+			// The reaction that matches the side the blow landed on: heavy for a broken stance, else the flinch.
+			const FOSFDirectionalClips& Set = (Tag == OSFTags::State_PoiseBroken && StaggerClips.IsValid()) ? StaggerClips : HitReactClips;
+			const FOSFAnimClip& Reaction = Set.IsValid() ? Set.Pick(LastHitFrom) : HitReactClip;
+			Reaction.IsValid() ? ClipAnim->PlayActionClip(Reaction) : ClipAnim->StopActionClip(0.1f);
 		}
 		SetSprinting(false);
 		if (CurrentLadder)

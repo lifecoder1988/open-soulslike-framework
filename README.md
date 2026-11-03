@@ -56,6 +56,9 @@ OSF is an independent implementation written from scratch: no code or assets fro
   Held guns get an **aim pose**: the torso turns so the barrel (the mesh's long axis) points at the lock-on target, with a recoil kick per shot.
   **Footsteps** play per stride from the character's speed (`FootstepSound`, `FootstepStride`).
   **Ladders** play `ClimbClip` / `ClimbDownClip` (looping, paused while hanging still, rate from the ladder's `ClimbSpeed`).
+  **Hit reactions** pick the clip for the side the blow came from (`HitReactClips`, `StaggerClips` for a broken stance).
+- **Sound buses**: `UOSFSoundBuses` makes SFX / Music / Voice / UI sound classes at startup, so games route sounds and duck
+  one bus under another (music under dialogue) without sound class or mix assets.
 - **Runtime translations** of the framework UI from a JSON table (CJK glyphs supported by the default HUD font).
 - Debug console commands (`OSFStatus`, `OSFAction`, `OSFGoTo`, `OSFInteract`, `OSFGod`, `OSFSave`…) make every system scriptable
 - **Autopilot** (`UOSFAutoPilotComponent`): plays a scripted route through the player's own input paths - walks, fights

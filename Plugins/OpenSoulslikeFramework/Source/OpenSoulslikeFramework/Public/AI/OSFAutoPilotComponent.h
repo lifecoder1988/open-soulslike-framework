@@ -241,6 +241,11 @@ protected:
 	bool bRunning = false;
 	bool bFinished = false;
 	double TaskStartTime = 0.0;
+	// Performance: frame times since the last report, written as a milestone every PerfReportInterval seconds.
+	TArray<float> FrameTimes;
+	double LastPerfReport = 0.0;
+	float PerfReportInterval = 15.f;
+	void TickPerf(float DeltaTime);
 	bool bTaskInteracted = false;
 	double TaskInteractTime = 0.0;
 	float ApproachShrink = 0.f;

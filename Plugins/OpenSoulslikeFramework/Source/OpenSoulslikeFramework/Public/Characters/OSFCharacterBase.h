@@ -116,9 +116,21 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
 	FOSFAnimClip RunClip;
 
-	/** Optional hit reaction clip (stagger / stance break). */
+	/** Optional hit reaction clip (stagger / stance break) when no directional clip fits. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
 	FOSFAnimClip HitReactClip;
+
+	/** Hit reactions by the side the blow came from (a flinch that reads where it landed); HitReactClip is the fallback. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	FOSFDirectionalClips HitReactClips;
+
+	/** Heavier reactions for a broken stance (PoiseBroken) by side; HitReactClips, then HitReactClip, are the fallbacks. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	FOSFDirectionalClips StaggerClips;
+
+	/** Where the last blow came from, in actor space (+X front, +Y right); the procedural stagger leans away from it. */
+	UFUNCTION(BlueprintPure, Category = "OSF|Animation")
+	FVector GetLastHitFrom() const { return LastHitFrom; }
 
 	/** Optional death clip, held on its last frame. Without one the body tips over at the feet. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
@@ -188,6 +200,17 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "OSF|Animation")
 	void SetupSkeletalMesh(USkeletalMesh* NewMesh, float TargetHeight, float YawOffset = -90.f);
+
+	/**
+	 * Adds a modular part (head, hands, legs of a character sold in pieces) that shares the main mesh's skeleton: it
+	 * follows the main mesh's pose (leader pose) and its scale, so one clip drives the whole body. Call after
+	 * SetupSkeletalMesh.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "OSF|Animation")
+	USkeletalMeshComponent* AddMeshPart(USkeletalMesh* Part);
+
+	UFUNCTION(BlueprintPure, Category = "OSF|Animation")
+	TArray<USkeletalMeshComponent*> GetMeshParts() const;
 
 	// --- Hit feel ---
 
@@ -367,6 +390,9 @@ protected:
 	TObjectPtr<UMaterialInstanceDynamic> BodyMaterial;
 
 	UPROPERTY(Transient)
+	TArray<TObjectPtr<USkeletalMeshComponent>> MeshParts;
+
+	UPROPERTY(Transient)
 	TObjectPtr<AOSFLadder> CurrentLadder;
 
 	float LadderInput = 0.f;
@@ -374,6 +400,7 @@ protected:
 	bool bProceduralVisuals = true;
 	float HitFlash = 0.f;
 	float DeathFall = 0.f;
+	FVector LastHitFrom = FVector::ForwardVector;
 	/** The death clip is playing: no procedural fall on top. */
 	bool bDeathClipPlaying = false;
 	/** Locomotion clips last handed to the anim instance (RefreshLocomotionClips skips unchanged sets). */

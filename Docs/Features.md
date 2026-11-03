@@ -43,6 +43,9 @@ Feature list of the commercial Soulslike Framework (from its forum post) compare
 | Imported skeletal characters | ✅ | `AOSFCharacterBase::SetupSkeletalMesh` (height, feet, yaw), per-skeleton hand sockets, weapons aligned to the owner for unknown bone axes, static-mesh bodies for unrigged models |
 | Quests | ✅ | `UOSFQuestData` (kill / flag / progress / item objectives, rewards) tracked through progress flags and counters, so quests save with the game; HUD tracker |
 | Footsteps | ✅ | `AOSFCharacterBase::FootstepSound`: one sound per stride, stride and volume by ground speed |
+| Directional hit reactions | ✅ | `AOSFCharacterBase::HitReactClips` / `StaggerClips` (`FOSFDirectionalClips`: front / back / left / right): the flinch or the heavy stagger that matches the side the blow came from; the procedural stagger leans away from it (`GetLastHitFrom`) |
+| Sound buses | ✅ | `UOSFSoundBuses` (game instance subsystem): SFX / Music / Voice / UI classes under Master made at startup, `Assign`, `SetBusVolume`, `Duck` (a timed sound mix, e.g. music under dialogue) |
+| Autopilot perf line | ✅ | `[AutoPilot] perf: … fps avg, 1% low, max ms, mem` every 15 s of a run, for cooked-build budgets |
 | Ladder climb clips | ✅ | `AOSFCharacterBase::ClimbClip` / `ClimbDownClip` (loops): play while climbing, freeze while hanging still, rate = `ClimbSpeed / ClimbClipStride`; the up clip runs backwards without a down clip (`UOSFClipAnimInstance::SetActionRate`) |
 | Off-duty enemies | ✅ | `AOSFEnemyCharacter::IdleBehavior` Rest / Chat with looping clips, a chat partner and idle barks; loot drops as `AOSFItemPickup` (`bDropLootAsPickups`) |
 | Aim pose for held guns | ✅ | `AOSFCharacterBase::UpdateAimPose` + `UOSFClipAnimInstance::SetAim`: the torso turns so the weapon mesh's barrel axis points along the aim direction (lock-on target / view), exact per frame, clamped by `MaxAimAngle`; procedural recoil kick; muzzle = far end of the barrel |
