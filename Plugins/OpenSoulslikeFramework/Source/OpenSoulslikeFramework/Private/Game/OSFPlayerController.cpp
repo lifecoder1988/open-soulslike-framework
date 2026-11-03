@@ -1217,6 +1217,20 @@ void AOSFPlayerController::OSFFace(const FString& Filter)
 	{
 		return;
 	}
+	// "OSFFace 135" or "OSFFace 135,-20": a world yaw (and pitch) instead of an actor to face.
+	if (!Filter.IsEmpty() && (FChar::IsDigit(Filter[0]) || Filter[0] == TEXT('-')))
+	{
+		FString YawText, PitchText;
+		if (!Filter.Split(TEXT(","), &YawText, &PitchText))
+		{
+			YawText = Filter;
+			PitchText = TEXT("-10");
+		}
+		const float Yaw = FCString::Atof(*YawText);
+		MyPawn->SetActorRotation(FRotator(0.f, Yaw, 0.f));
+		SetControlRotation(FRotator(FCString::Atof(*PitchText), Yaw, 0.f));
+		return;
+	}
 	for (TActorIterator<AActor> It(GetWorld()); It; ++It)
 	{
 		if (*It != MyPawn && (It->GetName().Contains(Filter) || It->GetClass()->GetName().Contains(Filter)))

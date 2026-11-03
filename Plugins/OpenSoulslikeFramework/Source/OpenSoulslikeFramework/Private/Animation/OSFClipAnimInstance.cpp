@@ -103,7 +103,13 @@ float UOSFClipAnimInstance::Advance(const FOSFAnimClip& Clip, float Time, float 
 	}
 	if (Clip.bLoop)
 	{
-		return Clip.Start + FMath::Fmod(FMath::Max(Time - Clip.Start, 0.f), Length);
+		// Wraps both ways, so a negative rate runs the loop backwards.
+		float Phase = FMath::Fmod(Time - Clip.Start, Length);
+		if (Phase < 0.f)
+		{
+			Phase += Length;
+		}
+		return Clip.Start + Phase;
 	}
 	return FMath::Clamp(Time, Clip.Start, End);
 }

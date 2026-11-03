@@ -768,6 +768,7 @@ void AOSFCharacterBase::EnterLadder(AOSFLadder* Ladder, bool bFromTop)
 	GetCharacterMovement()->SetMovementMode(MOVE_Flying);
 	SetActorRotation(Ladder->GetClimbRotation());
 	SetActorLocation(Ladder->GetClimbLocation(LadderHeight, GetCapsuleComponent()->GetScaledCapsuleHalfHeight()));
+	UpdateClimbClip();
 }
 
 void AOSFCharacterBase::ExitLadder(bool bAtTop)
@@ -779,6 +780,11 @@ void AOSFCharacterBase::ExitLadder(bool bAtTop)
 	AOSFLadder* Ladder = CurrentLadder;
 	CurrentLadder = nullptr;
 	LadderInput = 0.f;
+	if (UOSFClipAnimInstance* Anim = GetClipAnimInstance(); Anim && ClimbClip.IsValid())
+	{
+		Anim->SetActionRate(1.f);
+		Anim->StopActionClip(0.15f);
+	}
 	ActionComponent->ClearStateTag(OSFTags::State_OnLadder);
 	GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 	const FVector Exit = bAtTop ? Ladder->GetTopExitLocation() : Ladder->GetBottomExitLocation();
@@ -804,10 +810,31 @@ void AOSFCharacterBase::UpdateLadder(float DeltaSeconds)
 		return;
 	}
 	SetActorLocation(CurrentLadder->GetClimbLocation(LadderHeight, GetCapsuleComponent()->GetScaledCapsuleHalfHeight()));
+	UpdateClimbClip();
 	if (bProceduralVisuals)
 	{
 		const float Phase = FMath::Sin(LadderHeight * 0.08f);
 		RightHandPivot->SetRelativeLocation(FVector(18.f, 40.f, 110.f + Phase * 20.f));
 		LeftHandPivot->SetRelativeLocation(FVector(22.f, -38.f, 112.f - Phase * 20.f));
 	}
+}
+
+void AOSFCharacterBase::UpdateClimbClip()
+{
+	UOSFClipAnimInstance* Anim = GetClipAnimInstance();
+	if (!Anim || !CurrentLadder || !ClimbClip.IsValid())
+	{
+		return;
+	}
+	const bool bDown = LadderInput < -KINDA_SMALL_NUMBER;
+	const bool bOwnDownClip = ClimbDownClip.IsValid();
+	const FOSFAnimClip& Wanted = (bDown && bOwnDownClip) ? ClimbDownClip : ClimbClip;
+	if (!Anim->IsPlayingSequence(Wanted.Sequence))
+	{
+		Anim->PlayActionClip(Wanted);
+	}
+	// One cycle covers ClimbClipStride cm of ladder; backwards when going down on the up clip.
+	const float Rate = CurrentLadder->ClimbSpeed / FMath::Max(ClimbClipStride, 10.f);
+	Anim->SetActionRate((bDown && !bOwnDownClip) ? -Rate : Rate);
+	Anim->HoldActionClip(FMath::IsNearlyZero(LadderInput));
 }

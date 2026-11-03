@@ -158,6 +158,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "OSF|Clips")
 	void HoldActionClip(bool bHold) { bHoldAction = bHold; }
 
+	/** Play rate of the action clip (1 = the clip's own; negative runs a looping clip backwards, e.g. a climb back down). */
+	UFUNCTION(BlueprintCallable, Category = "OSF|Clips")
+	void SetActionRate(float Rate) { ActionRateScale = Rate; }
+
 	UFUNCTION(BlueprintPure, Category = "OSF|Clips")
 	bool IsPlayingActionClip() const { return ActionClip.IsValid() && ActionWeightTarget > 0.f; }
 

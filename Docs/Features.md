@@ -43,6 +43,7 @@ Feature list of the commercial Soulslike Framework (from its forum post) compare
 | Imported skeletal characters | ✅ | `AOSFCharacterBase::SetupSkeletalMesh` (height, feet, yaw), per-skeleton hand sockets, weapons aligned to the owner for unknown bone axes, static-mesh bodies for unrigged models |
 | Quests | ✅ | `UOSFQuestData` (kill / flag / progress / item objectives, rewards) tracked through progress flags and counters, so quests save with the game; HUD tracker |
 | Footsteps | ✅ | `AOSFCharacterBase::FootstepSound`: one sound per stride, stride and volume by ground speed |
+| Ladder climb clips | ✅ | `AOSFCharacterBase::ClimbClip` / `ClimbDownClip` (loops): play while climbing, freeze while hanging still, rate = `ClimbSpeed / ClimbClipStride`; the up clip runs backwards without a down clip (`UOSFClipAnimInstance::SetActionRate`) |
 | Off-duty enemies | ✅ | `AOSFEnemyCharacter::IdleBehavior` Rest / Chat with looping clips, a chat partner and idle barks; loot drops as `AOSFItemPickup` (`bDropLootAsPickups`) |
 | Aim pose for held guns | ✅ | `AOSFCharacterBase::UpdateAimPose` + `UOSFClipAnimInstance::SetAim`: the torso turns so the weapon mesh's barrel axis points along the aim direction (lock-on target / view), exact per frame, clamped by `MaxAimAngle`; procedural recoil kick; muzzle = far end of the barrel |
 | Autopilot | ✅ | `UOSFAutoPilotComponent`: scripted steps (MoveTo / Interact / ClearArea / Wait / Custom) + a combat loop through the player's own input paths; games subclass it for their rules (ammo, meters, cutscenes). `OSFAutoPilot start` |

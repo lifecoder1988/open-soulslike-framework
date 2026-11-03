@@ -55,6 +55,7 @@ OSF is an independent implementation written from scratch: no code or assets fro
   `SetupSkeletalMesh` sizes and grounds glTF / Tripo rigs, unrigged scans can be bodies; NPCs can use skeletal bodies too.
   Held guns get an **aim pose**: the torso turns so the barrel (the mesh's long axis) points at the lock-on target, with a recoil kick per shot.
   **Footsteps** play per stride from the character's speed (`FootstepSound`, `FootstepStride`).
+  **Ladders** play `ClimbClip` / `ClimbDownClip` (looping, paused while hanging still, rate from the ladder's `ClimbSpeed`).
 - **Runtime translations** of the framework UI from a JSON table (CJK glyphs supported by the default HUD font).
 - Debug console commands (`OSFStatus`, `OSFAction`, `OSFGoTo`, `OSFInteract`, `OSFGod`, `OSFSave`…) make every system scriptable
 - **Autopilot** (`UOSFAutoPilotComponent`): plays a scripted route through the player's own input paths - walks, fights

@@ -125,6 +125,20 @@ public:
 	FOSFAnimClip DeathClip;
 
 	/**
+	 * Optional ladder clips (loops). ClimbClip plays while climbing up and freezes while the climber hangs still;
+	 * ClimbDownClip plays on the way down (without one, ClimbClip runs backwards). Its rate follows the ladder's ClimbSpeed.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	FOSFAnimClip ClimbClip;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation")
+	FOSFAnimClip ClimbDownClip;
+
+	/** Ladder height (cm) one cycle of ClimbClip covers: sets the clip rate so the feet keep pace with the rungs. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Animation", meta = (ClampMin = 10))
+	float ClimbClipStride = 120.f;
+
+	/**
 	 * Re-picks the locomotion clips: the active right-hand weapon's stance clips (UOSFWeaponData::StanceIdleClip...)
 	 * when they fit this mesh, else IdleClip / WalkClip / RunClip. Called on equipment changes.
 	 */
@@ -333,6 +347,8 @@ protected:
 	void InitClipAnimation();
 	virtual void UpdateStaminaRegen();
 	virtual void UpdateLadder(float DeltaSeconds);
+	/** Keeps the climb clip playing, paused or reversed to match LadderInput (clip animation only). */
+	void UpdateClimbClip();
 	/** Turns the torso so the held gun's forward settles on GetAimDirection (clip animation only). */
 	virtual void UpdateAimPose(float DeltaSeconds);
 	void UpdateFootsteps(float DeltaSeconds);
