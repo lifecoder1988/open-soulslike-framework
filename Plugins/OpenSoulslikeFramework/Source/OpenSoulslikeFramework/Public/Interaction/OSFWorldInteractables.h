@@ -150,6 +150,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Pickup")
 	bool bPersistent = true;
 
+	/** Small light so a drop reads on dark ground. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Pickup")
+	TObjectPtr<UPointLightComponent> Glow;
+
 	virtual bool CanInteract_Implementation(AActor* Interactor) const override { return !bCollected && Item; }
 	virtual void Interact_Implementation(AActor* Interactor) override;
 	virtual FText GetInteractionPrompt_Implementation(AActor* Interactor) const override;

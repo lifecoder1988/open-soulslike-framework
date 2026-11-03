@@ -294,6 +294,13 @@ AOSFItemPickup::AOSFItemPickup()
 	Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Color = FLinearColor(1.f, 0.85f, 0.4f);
 	InteractionVolume->SetSphereRadius(120.f);
+	Glow = CreateDefaultSubobject<UPointLightComponent>(TEXT("Glow"));
+	Glow->SetupAttachment(Mesh);
+	Glow->SetIntensity(400.f);
+	Glow->SetAttenuationRadius(220.f);
+	Glow->SetLightColor(Color);
+	Glow->SetCastShadows(false);
+	Glow->SetMobility(EComponentMobility::Movable);
 }
 
 void AOSFItemPickup::BeginPlay()
@@ -303,6 +310,10 @@ void AOSFItemPickup::BeginPlay()
 	if (Item)
 	{
 		SetMeshColor(Item->Tint);
+		if (Glow)
+		{
+			Glow->SetLightColor(Item->Tint);
+		}
 	}
 }
 

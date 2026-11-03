@@ -67,6 +67,9 @@ struct OPENSOULSLIKEFRAMEWORK_API FOSFAutoTask
 	/** Custom steps: return true when done. */
 	TFunction<bool(UOSFAutoPilotComponent*)> Custom;
 
+	/** MoveTo / Interact: finds the actor when Actor is unset (a chest that appears later); null = keep waiting. */
+	TFunction<AActor*(UOSFAutoPilotComponent*)> ResolveActor;
+
 	static FOSFAutoTask MoveTo(const FVector& InLocation, float InRadius, const FString& InLabel = FString());
 	static FOSFAutoTask MoveToActor(AActor* InActor, float InRadius, const FString& InLabel = FString());
 	static FOSFAutoTask InteractWith(AActor* InActor, float InApproachOffset = 160.f, const FString& InLabel = FString());
@@ -140,6 +143,14 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|AutoPilot")
 	float RestSeconds = 2.5f;
 
+	/** Dropped items this close are picked up on the way (0 = never). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|AutoPilot")
+	float PickupRadius = 900.f;
+
+	/** A MoveTo / Interact step still unfinished after this many seconds is skipped with a warning (0 = never). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|AutoPilot")
+	float TaskTimeout = 75.f;
+
 	// --- Script ---
 
 	UFUNCTION(BlueprintCallable, Category = "OSF|AutoPilot")
@@ -205,6 +216,10 @@ protected:
 
 	void TickMenus();
 	void TickTask(float DeltaTime);
+	/** Walks to and takes a nearby drop. True while busy with one. */
+	bool TickPickups(float DeltaTime);
+	/** Walks up to Actor (ApproachOffset along its forward) and interacts; true once the interaction happened. */
+	bool ApproachAndInteract(AActor* Actor, float ApproachOffset, float DeltaTime, bool bSprint);
 	/** Fights hostiles around the player. True while fighting (the script waits). */
 	bool TickCombat(float DeltaTime);
 	bool ReactToThreats(const TArray<AOSFEnemyCharacter*>& Hostiles, bool bCanCounter);
@@ -241,6 +256,9 @@ protected:
 	mutable FString LastBlocker;
 	// Combat
 	TWeakObjectPtr<AOSFEnemyCharacter> CurrentTarget;
+	TWeakObjectPtr<AActor> PickupTarget;
+	double PickupStartTime = 0.0;
+	TArray<TWeakObjectPtr<AActor>> SkippedPickups;
 	double LastDodgeTime = -10.0;
 	double LastHealTime = -10.0;
 	double LastTargetTime = -10.0;

@@ -46,6 +46,7 @@ OSF is an independent implementation written from scratch: no code or assets fro
 - Perception plus a self-contained state machine (idle, patrol, combat, return, leash) that needs no navmesh or behavior tree (both are optional)
 - Weighted ability selection by range, cooldown and boss phase; combo follow-ups; reactive guard and dodge; whiff punishing
 - **Multi-phase bosses** with phase buffs, a boss bar, music and defeat progression
+- **Off-duty enemies**: resting, chatting (facing a partner, taking turns muttering) or patrolling until they notice the player; loot drops on the ground as glowing pickups
 
 **Presentation and tooling**
 - Default canvas HUD and gamepad-navigable menus (rest, level up, inventory, equipment, crafting, storage, shop, dialogue, save/load). A UMG front-end can use the same controller API.
@@ -53,6 +54,7 @@ OSF is an independent implementation written from scratch: no code or assets fro
 - **Imported characters without anim blueprints**: `UOSFClipAnimInstance` plays trimmed clips (idle / walk / run by speed, action clips),
   `SetupSkeletalMesh` sizes and grounds glTF / Tripo rigs, unrigged scans can be bodies; NPCs can use skeletal bodies too.
   Held guns get an **aim pose**: the torso turns so the barrel (the mesh's long axis) points at the lock-on target, with a recoil kick per shot.
+  **Footsteps** play per stride from the character's speed (`FootstepSound`, `FootstepStride`).
 - **Runtime translations** of the framework UI from a JSON table (CJK glyphs supported by the default HUD font).
 - Debug console commands (`OSFStatus`, `OSFAction`, `OSFGoTo`, `OSFInteract`, `OSFGod`, `OSFSave`…) make every system scriptable
 - **Autopilot** (`UOSFAutoPilotComponent`): plays a scripted route through the player's own input paths - walks, fights

@@ -9,6 +9,9 @@
 #include "Combat/OSFLockOnComponent.h"
 #include "Game/OSFPlayerController.h"
 #include "Interaction/OSFInteractionComponent.h"
+#include "Interaction/OSFInteractable.h"
+#include "Interaction/OSFWorldInteractables.h"
+#include "Interaction/OSFLadder.h"
 #include "Items/OSFEquipmentComponent.h"
 #include "Items/OSFInventoryComponent.h"
 #include "Items/OSFItemData.h"
@@ -305,11 +308,44 @@ void UOSFAutoPilotComponent::TickTask(float DeltaTime)
 	FOSFAutoTask& Task = Tasks[TaskIndex];
 	const double Now = GetWorld()->GetTimeSeconds();
 
+	if (TaskTimeout > 0.f && (Task.Type == EOSFAutoTaskType::MoveTo || Task.Type == EOSFAutoTaskType::Interact) && Now - TaskStartTime > TaskTimeout && !bTaskInteracted)
+	{
+		UE_LOG(LogOSF, Warning, TEXT("[AutoPilot] gave up on '%s' after %.0f s"), *Task.Label, TaskTimeout);
+		Milestone(FString::Printf(TEXT("skipped: %s"), *Task.Label));
+		NextTask();
+		return;
+	}
+	if (Player->GetCurrentLadder())
+	{
+		// On a ladder only a Custom step (climbing) runs; nothing else can move the character anyway. The Interact
+		// step that put us on it is over.
+		if (Task.Type == EOSFAutoTaskType::Interact && bTaskInteracted)
+		{
+			NextTask();
+		}
+		else if (Task.Type == EOSFAutoTaskType::Custom && (!Task.Custom || Task.Custom(this)))
+		{
+			NextTask();
+		}
+		return;
+	}
 	if (TickCombat(DeltaTime))
 	{
 		return;
 	}
 	Player->SetDesiredMoveDirection(FVector::ZeroVector);
+	if (Task.Type != EOSFAutoTaskType::Custom && TickPickups(DeltaTime))
+	{
+		return;
+	}
+	if ((Task.Type == EOSFAutoTaskType::MoveTo || Task.Type == EOSFAutoTaskType::Interact) && !Task.Actor.IsValid() && Task.ResolveActor)
+	{
+		Task.Actor = Task.ResolveActor(this);
+		if (!Task.Actor.IsValid())
+		{
+			return;	// not there yet
+		}
+	}
 
 	switch (Task.Type)
 	{
@@ -346,38 +382,11 @@ void UOSFAutoPilotComponent::TickTask(float DeltaTime)
 			}
 			break;
 		}
-		const FVector Forward = Actor->GetActorForwardVector().GetSafeNormal2D();
-		const float Offset = FMath::Max(60.f, FMath::Abs(Task.ApproachOffset) - ApproachShrink) * FMath::Sign(Task.ApproachOffset);
-		const FVector Goal = Actor->GetActorLocation() + Forward * Offset;
-		if (FVector::Dist2D(Goal, Player->GetActorLocation()) > 55.f)
+		if (ApproachAndInteract(Actor, Task.ApproachOffset, DeltaTime, Task.bSprint))
 		{
-			Steer(Goal, DeltaTime, Task.bSprint);
-			break;
-		}
-		Player->SetSprinting(false);
-		if (TaskInteractTime <= 0.0)
-		{
-			TaskInteractTime = Now;	// arrived
-		}
-		// Face it (the interaction focus scores facing) and look at it.
-		const FVector To = (Actor->GetActorLocation() - Player->GetActorLocation()).GetSafeNormal2D();
-		Player->SetActorRotation(FMath::RInterpTo(Player->GetActorRotation(), FRotator(0.f, To.Rotation().Yaw, 0.f), DeltaTime, 10.f));
-		Look(To, DeltaTime, 5.f);
-		Player->Interaction->UpdateFocus();
-		if (Player->Interaction->GetFocusedInteractable() == Actor)
-		{
-			if (!Player->ActionComponent->IsBusy() && Player->Interaction->TryInteract())
-			{
-				bTaskInteracted = true;
-				TaskInteractTime = Now;
-				Milestone(Task.Label.IsEmpty() ? FString::Printf(TEXT("interact %s"), *Actor->GetName()) : Task.Label);
-			}
-		}
-		else if (Now - TaskInteractTime > 2.0)
-		{
-			// Not in reach from here: step closer.
-			ApproachShrink += 40.f;
+			bTaskInteracted = true;
 			TaskInteractTime = Now;
+			Milestone(Task.Label.IsEmpty() ? FString::Printf(TEXT("interact %s"), *Actor->GetName()) : Task.Label);
 		}
 		break;
 	}
@@ -416,6 +425,93 @@ void UOSFAutoPilotComponent::TickTask(float DeltaTime)
 		}
 		break;
 	}
+}
+
+bool UOSFAutoPilotComponent::ApproachAndInteract(AActor* Actor, float ApproachOffset, float DeltaTime, bool bSprint)
+{
+	AOSFPlayerCharacter* Player = GetPlayer();
+	const double Now = GetWorld()->GetTimeSeconds();
+	const FVector Forward = Actor->GetActorForwardVector().GetSafeNormal2D();
+	const float Offset = FMath::Max(60.f, FMath::Abs(ApproachOffset) - ApproachShrink) * FMath::Sign(ApproachOffset);
+	const FVector Goal = Actor->GetActorLocation() + Forward * Offset;
+	if (FVector::Dist2D(Goal, Player->GetActorLocation()) > 55.f)
+	{
+		Steer(Goal, DeltaTime, bSprint);
+		return false;
+	}
+	Player->SetSprinting(false);
+	if (TaskInteractTime <= 0.0)
+	{
+		TaskInteractTime = Now;	// arrived
+	}
+	// Face it (the interaction focus scores facing) and look at it.
+	const FVector To = (Actor->GetActorLocation() - Player->GetActorLocation()).GetSafeNormal2D();
+	Player->SetActorRotation(FMath::RInterpTo(Player->GetActorRotation(), FRotator(0.f, To.Rotation().Yaw, 0.f), DeltaTime, 10.f));
+	Look(To, DeltaTime, 5.f);
+	Player->Interaction->UpdateFocus();
+	if (Player->Interaction->GetFocusedInteractable() == Actor)
+	{
+		return !Player->ActionComponent->IsBusy() && Player->Interaction->TryInteract();
+	}
+	if (Now - TaskInteractTime > 2.0)
+	{
+		// Not in reach from here: step closer.
+		ApproachShrink += 40.f;
+		TaskInteractTime = Now;
+	}
+	return false;
+}
+
+bool UOSFAutoPilotComponent::TickPickups(float DeltaTime)
+{
+	AOSFPlayerCharacter* Player = GetPlayer();
+	const double Now = GetWorld()->GetTimeSeconds();
+	if (PickupRadius <= 0.f)
+	{
+		return false;
+	}
+	AActor* Target = PickupTarget.Get();
+	if (Target && (!IOSFInteractable::Execute_CanInteract(Target, Player) || Now - PickupStartTime > 8.0))
+	{
+		if (Now - PickupStartTime > 8.0)
+		{
+			SkippedPickups.Add(Target);	// out of reach: leave it
+		}
+		PickupTarget = nullptr;
+		Target = nullptr;
+		ResetTaskState();
+	}
+	if (!Target)
+	{
+		float Best = PickupRadius;
+		for (TActorIterator<AOSFItemPickup> It(GetWorld()); It; ++It)
+		{
+			const float Distance = FVector::Dist2D(It->GetActorLocation(), Player->GetActorLocation());
+			if (Distance < Best && !SkippedPickups.Contains(*It) && IOSFInteractable::Execute_CanInteract(*It, Player))
+			{
+				Best = Distance;
+				Target = *It;
+			}
+		}
+		if (!Target)
+		{
+			return false;
+		}
+		PickupTarget = Target;
+		PickupStartTime = Now;
+		ApproachShrink = 0.f;
+		TaskInteractTime = 0.0;
+	}
+	// Drops have no facing: come at them from our side.
+	const FVector Toward = (Player->GetActorLocation() - Target->GetActorLocation()).GetSafeNormal2D();
+	const float Yaw = Toward.IsNearlyZero() ? 0.f : Toward.Rotation().Yaw;
+	Target->SetActorRotation(FRotator(0.f, Yaw, 0.f));
+	if (ApproachAndInteract(Target, 70.f, DeltaTime, false))
+	{
+		PickupTarget = nullptr;
+		ResetTaskState();
+	}
+	return true;
 }
 
 // --- Combat --------------------------------------------------------------------------
@@ -620,6 +716,10 @@ bool UOSFAutoPilotComponent::TryHeal(const TArray<AOSFEnemyCharacter*>& Hostiles
 bool UOSFAutoPilotComponent::TickCombat(float DeltaTime)
 {
 	AOSFPlayerCharacter* Player = GetPlayer();
+	if (Player->GetCurrentLadder())
+	{
+		return false;
+	}
 	TArray<AOSFEnemyCharacter*> Hostiles;
 	GatherHostiles(Player->GetActorLocation(), EngageRadius, Hostiles);
 	// Far hostiles are only a fight when they have noticed us or stand in the area the script is clearing: a wave

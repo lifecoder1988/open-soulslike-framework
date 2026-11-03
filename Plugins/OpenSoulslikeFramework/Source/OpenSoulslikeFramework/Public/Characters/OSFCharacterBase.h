@@ -220,6 +220,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Sound")
 	TObjectPtr<USoundBase> DodgeSound;
 
+	/** Played at the feet every stride while moving on the ground (louder and shorter strides when running). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Sound")
+	TObjectPtr<USoundBase> FootstepSound;
+
+	/** Ground covered per footstep (cm) at walking and at sprinting speed. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Sound")
+	FVector2D FootstepStride = FVector2D(72.f, 125.f);
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Sound")
+	float FootstepVolume = 0.8f;
+
 	/** Freezes this character's animation and movement for Seconds (hit stop). */
 	UFUNCTION(BlueprintCallable, Category = "OSF|HitFeel")
 	void ApplyHitStop(float Seconds);
@@ -324,6 +335,8 @@ protected:
 	virtual void UpdateLadder(float DeltaSeconds);
 	/** Turns the torso so the held gun's forward settles on GetAimDirection (clip animation only). */
 	virtual void UpdateAimPose(float DeltaSeconds);
+	void UpdateFootsteps(float DeltaSeconds);
+	float StepDistance = 0.f;
 
 	UFUNCTION()
 	void HandleShotFiredForAim(UOSFEquipmentComponent* InEquipment, UOSFWeaponData* Weapon, int32 Hits);

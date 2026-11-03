@@ -253,6 +253,7 @@ void AOSFCharacterBase::Tick(float DeltaSeconds)
 	UpdateStaminaRegen();
 	UpdateMovementSpeed();
 	UpdateLadder(DeltaSeconds);
+	UpdateFootsteps(DeltaSeconds);
 	if (bProceduralVisuals)
 	{
 		UpdateProceduralVisuals(DeltaSeconds);
@@ -268,6 +269,30 @@ void AOSFCharacterBase::HandleShotFiredForAim(UOSFEquipmentComponent* InEquipmen
 {
 	LastShotTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0;
 	Recoil = FMath::Min(Recoil + RecoilKick, RecoilKick * 3.f);
+}
+
+void AOSFCharacterBase::UpdateFootsteps(float DeltaSeconds)
+{
+	if (!FootstepSound || IsDead() || CurrentLadder || !GetCharacterMovement()->IsMovingOnGround())
+	{
+		StepDistance = 0.f;
+		return;
+	}
+	const float Speed = GetVelocity().Size2D();
+	if (Speed < 60.f)
+	{
+		StepDistance = FootstepStride.X * 0.6f;	// the first step after standing comes soon
+		return;
+	}
+	const float Fraction = FMath::Clamp((Speed - WalkSpeed * 0.5f) / FMath::Max(SprintSpeed - WalkSpeed * 0.5f, 1.f), 0.f, 1.f);
+	const float Stride = FMath::Lerp(FootstepStride.X, FootstepStride.Y, Fraction) * FMath::Max(GetActorScale3D().GetMax(), 0.5f);
+	StepDistance += Speed * DeltaSeconds;
+	if (StepDistance >= Stride)
+	{
+		StepDistance -= Stride;
+		const FVector Feet = GetActorLocation() - FVector(0.f, 0.f, GetCapsuleComponent()->GetScaledCapsuleHalfHeight());
+		UGameplayStatics::PlaySoundAtLocation(this, FootstepSound, Feet, FootstepVolume * FMath::Lerp(0.55f, 1.f, Fraction), FMath::FRandRange(0.92f, 1.08f));
+	}
 }
 
 FVector AOSFCharacterBase::GetAimDirection() const

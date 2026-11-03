@@ -60,6 +60,12 @@ void AOSFAIController::OnPossess(APawn* InPawn)
 	}
 	State = Enemy->PatrolPoints.Num() > 0 ? EOSFAIState::Patrol : EOSFAIState::Idle;
 	SetCombatMovement(false);
+	if (State == EOSFAIState::Idle)
+	{
+		// The clip anim instance exists once the character has begun play: start the off-duty clip a moment later.
+		FTimerHandle Handle;
+		GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateWeakLambda(Enemy, [Enemy]() { Enemy->BeginIdleBehavior(); }), 0.3f, false);
+	}
 }
 
 void AOSFAIController::OnUnPossess()
@@ -93,6 +99,10 @@ void AOSFAIController::SetTarget(AActor* NewTarget)
 	}
 	if (NewTarget)
 	{
+		if (AOSFEnemyCharacter* Enemy = GetEnemy())
+		{
+			Enemy->EndIdleBehavior();
+		}
 		State = EOSFAIState::Combat;
 		SetCombatMovement(true);
 		ScheduleNextAttack();
@@ -326,6 +336,10 @@ void AOSFAIController::TickReturn(float DeltaSeconds)
 		Enemy->SetActorRotation(Enemy->GetHomeTransform().GetRotation());
 		Enemy->Stats->RestoreAll();
 		State = Enemy->PatrolPoints.Num() > 0 ? EOSFAIState::Patrol : EOSFAIState::Idle;
+		if (State == EOSFAIState::Idle)
+		{
+			Enemy->BeginIdleBehavior();
+		}
 		return;
 	}
 	SteerTowards(To, 0.7f);

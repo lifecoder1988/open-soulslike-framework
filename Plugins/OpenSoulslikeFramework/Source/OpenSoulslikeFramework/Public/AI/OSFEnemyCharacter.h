@@ -10,6 +10,16 @@ class UOSFAICombatComponent;
 class UOSFBossComponent;
 class UOSFProgressComponent;
 class UBehaviorTree;
+class USoundBase;
+
+/** What an enemy does while nobody is around. Patrols come from PatrolPoints. */
+UENUM(BlueprintType)
+enum class EOSFIdleBehavior : uint8
+{
+	Stand,	// idle clip
+	Rest,	// RestClip on a loop (sitting, crouching) until alerted
+	Chat	// ChatClip on a loop, facing ChatPartner, barking IdleBarkSound now and then
+};
 
 /** Enemy / boss. Drops currency and loot, respawns when the player rests (bosses stay dead). */
 UCLASS(Blueprintable)
@@ -41,6 +51,50 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Enemy")
 	TArray<FOSFLootEntry> Loot;
+
+	/** Loot lands on the ground as pickups (AOSFItemPickup) instead of going straight into the killer's inventory. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Enemy")
+	bool bDropLootAsPickups = true;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Enemy")
+	float LootScatter = 90.f;
+
+	// --- Off-duty life ---
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Enemy|Idle")
+	EOSFIdleBehavior IdleBehavior = EOSFIdleBehavior::Stand;
+
+	/** Looping clip for Rest (sitting, crouching, warming hands). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Enemy|Idle")
+	FOSFAnimClip RestClip;
+
+	/** Looping clip for Chat (talking, gesturing). */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Enemy|Idle")
+	FOSFAnimClip ChatClip;
+
+	/** Who a chatting enemy faces. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Enemy|Idle")
+	TWeakObjectPtr<AOSFEnemyCharacter> ChatPartner;
+
+	/** Mutters / growls while off duty (Chat and Rest), every IdleBarkInterval seconds. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Enemy|Idle")
+	TObjectPtr<USoundBase> IdleBarkSound;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Enemy|Idle")
+	FVector2D IdleBarkInterval = FVector2D(4.f, 9.f);
+
+	/** Starts the idle behaviour's clip (AI: on arriving idle / at home). */
+	UFUNCTION(BlueprintCallable, Category = "OSF|Enemy|Idle")
+	void BeginIdleBehavior();
+
+	/** Blends the idle behaviour out (AI: on noticing a target). */
+	UFUNCTION(BlueprintCallable, Category = "OSF|Enemy|Idle")
+	void EndIdleBehavior();
+
+	UFUNCTION(BlueprintPure, Category = "OSF|Enemy|Idle")
+	bool IsOffDuty() const { return bOffDuty; }
+
+	virtual void Tick(float DeltaSeconds) override;
 
 	/** Unique id for persistence (bosses). Defaults to the actor name. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "OSF|Enemy")
@@ -107,4 +161,6 @@ protected:
 	FTransform HomeTransform;
 	FLinearColor OriginalColor;
 	FTimerHandle CorpseTimer;
+	bool bOffDuty = false;
+	double NextBarkTime = 0.0;
 };
